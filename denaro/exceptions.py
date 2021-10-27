@@ -1,0 +1,2 @@
+class DoubleSpendException(Exception):
+    pass

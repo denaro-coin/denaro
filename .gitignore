@@ -1,0 +1,8 @@
+/main.py
+venv
+.idea
+__pycache__
+bot.py
+miner.html
+bot.session
+test.db
