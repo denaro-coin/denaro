@@ -27,8 +27,7 @@ psql -d denaro
 Then install denaro.  
 
 ```bash
-git clone https://github.com/skrtdev/denaro-beta
-mv denaro-beta denaro
+git clone https://github.com/denaro-coin/denaro
 cd denaro
 pip3 install -r requirements.txt
 cd ..
