@@ -9,6 +9,7 @@ from denaro.helpers import sha256, timestamp
 
 from icecream import ic
 
+from denaro.node.main import sync_blockchain
 
 _print = print
 print = ic
@@ -19,6 +20,7 @@ async def run():
     db = denaro.node.main.db
 
     while True:
+        await sync_blockchain()
         difficulty, last_block = await get_difficulty()
         last_block['hash'] = last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()
         print(difficulty)
@@ -42,6 +44,7 @@ async def run():
                     found = False
                     break
         if found:
+            await sync_blockchain()
             print(await node.push_block(None, _hex.hex(), [tx.hex() for tx in txs]))
             Manager.difficulty = None
             if txs:
