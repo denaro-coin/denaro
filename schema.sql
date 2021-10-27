@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS blocks (
 );
 
 CREATE TABLE IF NOT EXISTS transactions (
-	block_hash CHAR(64) NOT NULL REFERENCES blocks.hash ON DELETE CASCADE,
+	block_hash CHAR(64) NOT NULL REFERENCES blocks(hash) ON DELETE CASCADE,
 	tx_hash CHAR(64) UNIQUE,
 	tx_hex VARCHAR(2048) UNIQUE,
 	inputs_addresses TEXT[],
