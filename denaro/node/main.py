@@ -217,7 +217,7 @@ async def push_block(request: Request, block_content: str, txs: Union[List[str],
     try:
         added_transactions = await create_block(block_content, [await Transaction.from_hex(tx_hex) for tx_hex in txs])
         if added_transactions == False:
-            if (True or await check_block_is_valid(block_content)) and id == next_block_id and 'Sender-Node' in request.headers: # fixme
+            if (True or await check_block_is_valid(block_content)) and id == next_block_id and (request and 'Sender-Node' in request.headers): # fixme
                 previous_hash = split_block_content(block_content)[0]
                 _, last_block = await calculate_difficulty()
                 if previous_hash != last_block['hash']:

@@ -53,10 +53,10 @@ async def calculate_difficulty(limit: int = 5) -> Tuple[Decimal, dict]:
     async with database.pool.acquire() as connection:
         last_blocks = await connection.fetch(f"SELECT * FROM blocks ORDER BY id DESC LIMIT {limit}")
     if len(last_blocks) == 0:
-        return Decimal('5.0'), dict()
+        return START_DIFFICULTY, dict()
     last_block = dict(last_blocks[0])
     if len(last_blocks) < BLOCKS_COUNT:
-        return Decimal('5.0'), last_block
+        return START_DIFFICULTY, last_block
 
     if last_block['id'] % BLOCKS_COUNT == 0:
         last_adjust_block = await database.get_block_by_id(last_block['id'] - BLOCKS_COUNT + 1)
