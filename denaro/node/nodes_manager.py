@@ -11,7 +11,6 @@ class NodesManager:
     @staticmethod
     def init():
         NodesManager.nodes = NodesManager.db.get('nodes') or ['https://denaro-node.gaetano.eu.org']
-        NodesManager.sync()
 
     @staticmethod
     def sync():
@@ -28,6 +27,7 @@ class NodesManager:
 
     @staticmethod
     def add_node(node: str):
+        NodesManager.init()
         NodesManager.nodes.append(node)
         NodesManager.sync()
 
