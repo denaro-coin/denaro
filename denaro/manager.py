@@ -223,7 +223,7 @@ async def create_block(block_content: str, transactions: List[Transaction], chec
         print(difficulty)
         return False
 
-    if last_block['timestamp'].timestamp() > content_time:
+    if (last_block['timestamp'].timestamp() if 'timestamp' in last_block else 0) > content_time:
         print('timestamp younger than previous block')
         return False
 
