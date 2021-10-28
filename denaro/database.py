@@ -99,6 +99,7 @@ class Database:
             )
 
     async def add_block(self, block_hash: str, address: str, random: str, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, str]):
+        await self.reindex_blocks()
         async with self.pool.acquire() as connection:
             stmt = await connection.prepare('INSERT INTO blocks (hash, address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6)')
             await stmt.fetchval(
