@@ -199,6 +199,7 @@ def split_block_content(block_content: str):
     return previous_hash, public_key, merkle_tree, timestamp, difficulty, random
 
 
+# remove check_current_time
 async def create_block(block_content: str, transactions: List[Transaction], check_current_time: bool = True):
     Manager.difficulty = None
     if not await check_block_is_valid(block_content):
@@ -216,14 +217,18 @@ async def create_block(block_content: str, transactions: List[Transaction], chec
     if last_block != {} and (len(block_content) > 138 * 2 or previous_hash != last_block['hash']):
         return False
 
-    if content_difficulty != difficulty:  # FIXME
+    if content_difficulty != difficulty:
         print('not same difficulty')
         print(content_difficulty)
         print(difficulty)
         return False
 
-    if check_current_time and abs(content_time - timestamp()) > 180:  # FIXME improve
-        print('not same time')
+    if last_block['timestamp'].timestamp() > content_time:
+        print('timestamp younger than previous block')
+        return False
+
+    if content_time - timestamp() > 60 * 60 * 2:
+        print('timestamp older than 2 hours in the future')
         return False
 
     database: Database = Database.instance
