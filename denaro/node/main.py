@@ -201,7 +201,7 @@ async def push_tx(tx_hex: str):
 
 
 @app.get("/push_block")
-async def push_block(request: Request, block_content: str, txs: Union[List[str], str] = [], id: int = None):
+async def push_block(request: Request, block_content: str, txs, id: int = None):
     if isinstance(txs, str):
         txs = txs.split(',')
     next_block_id = await db.get_next_block_id()
