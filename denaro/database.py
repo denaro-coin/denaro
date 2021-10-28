@@ -70,6 +70,10 @@ class Database:
         async with self.pool.acquire() as connection:
             await connection.execute('TRUNCATE transactions, blocks RESTART IDENTITY')
 
+    async def reindex_blocks(self):
+        async with self.pool.acquire() as connection:
+            await connection.execute(f'ALTER SEQUENCE blocks_id_seq RESTART {await self.get_next_block_id()}')
+
     async def delete_block(self, id: int):
         async with self.pool.acquire() as connection:
             await connection.execute('DELETE FROM blocks WHERE id = $1', id)
