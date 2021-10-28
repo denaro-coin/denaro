@@ -55,7 +55,7 @@ async def calculate_difficulty(limit: int = 5) -> Tuple[Decimal, dict]:
     if len(last_blocks) == 0:
         return START_DIFFICULTY, dict()
     last_block = dict(last_blocks[0])
-    if len(last_blocks) < BLOCKS_COUNT:
+    if last_block['id'] < BLOCKS_COUNT:
         return START_DIFFICULTY, last_block
 
     if last_block['id'] % BLOCKS_COUNT == 0:
