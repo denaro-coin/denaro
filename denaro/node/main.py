@@ -207,7 +207,7 @@ async def push_block(request: Request, block_content: str, txs, id: int = None):
     next_block_id = await db.get_next_block_id()
     if id is not None:
         if next_block_id < id:
-            await sync_blockchain()
+            await sync_blockchain(request.headers['Sender-Node'] if 'Sender-Node' in request.headers else None)
             if await db.get_next_block_id() != id:
                 return {'ok': False, 'error': 'Could not sync blockchain'}
         if next_block_id > id:
