@@ -264,7 +264,7 @@ async def create_block(block_content: str, transactions: List[Transaction], chec
         print(get_transactions_merkle_tree(transactions))
         return False
 
-    block_reward = get_block_reward(await database.get_next_block_id() * 100)
+    block_reward = get_block_reward(await database.get_next_block_id())
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
 
     try:
