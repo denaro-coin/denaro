@@ -204,6 +204,8 @@ async def push_tx(tx_hex: str):
 async def push_block(request: Request, block_content: str, txs, id: int = None):
     if isinstance(txs, str):
         txs = txs.split(',')
+        if txs == ['']:
+            txs = []
     next_block_id = await db.get_next_block_id()
     if id is not None:
         if next_block_id < id:
