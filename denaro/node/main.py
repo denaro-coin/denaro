@@ -10,7 +10,7 @@ from starlette.requests import Request
 
 from denaro.helpers import timestamp, sha256
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, check_block_is_valid, \
-    split_block_content, calculate_difficulty
+    split_block_content, calculate_difficulty, clear_pending_transactions
 from denaro.node.nodes_manager import NodesManager
 from denaro.transactions import Transaction
 from denaro import Database
@@ -254,6 +254,7 @@ async def get_mining_info():
     difficulty, last_block = await get_difficulty()
     print(last_block)
     last_block['timestamp'] = int(last_block['timestamp'].timestamp())
+    await clear_pending_transactions()
     pending_transactions = await db.get_pending_transactions_limit(1000)
     return {'ok': True, 'result': {
         'difficulty': difficulty,
