@@ -98,7 +98,7 @@ class Database:
                 transaction.fees if isinstance(transaction, Transaction) else 0
             )
 
-    async def add_block(self, block_hash: str, address: str, random: str, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, str]):
+    async def add_block(self, block_hash: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, str]):
         try:
             await self.reindex_blocks()
         except asyncpg.exceptions.InsufficientPrivilegeError:

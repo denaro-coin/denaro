@@ -33,28 +33,13 @@ def hashrate_to_difficulty(hashrate: int) -> Decimal:
     return Decimal(difficulty + (hashrate / Decimal(16) ** difficulty) / 16)
 
 
-def next_difficulty(difficulty: float):
-    if difficulty <= 3:
-        return difficulty + 1
-    else:
-        return difficulty + Decimal('0.1')
-
-
-def precedent_difficulty(difficulty: float):
-    if difficulty <= 5:
-        return difficulty - 1 if difficulty > 2 else 1
-    else:
-        return difficulty - Decimal('0.1') if difficulty > Decimal('0.1') else Decimal('0.1')
-
-
-async def calculate_difficulty(limit: int = 5) -> Tuple[Decimal, dict]:
+async def calculate_difficulty() -> Tuple[Decimal, dict]:
     database = Database.instance
-    # last_blocks = await database.connection.fetch(f"SELECT * FROM blocks ORDER BY id DESC LIMIT {limit}")
     async with database.pool.acquire() as connection:
-        last_blocks = await connection.fetch(f"SELECT * FROM blocks ORDER BY id DESC LIMIT {limit}")
-    if len(last_blocks) == 0:
+        last_block = await connection.fetchrow(f"SELECT * FROM blocks ORDER BY id DESC LIMIT 1")
+    if last_block is None:
         return START_DIFFICULTY, dict()
-    last_block = dict(last_blocks[0])
+    last_block = dict(last_block)
     if last_block['id'] < BLOCKS_COUNT:
         return START_DIFFICULTY, last_block
 
@@ -71,38 +56,11 @@ async def calculate_difficulty(limit: int = 5) -> Tuple[Decimal, dict]:
         hashrate *= ratio
         new_difficulty = hashrate_to_difficulty(hashrate)
         print(new_difficulty)
-        new_difficulty = floor(new_difficulty * 10) / Decimal(10) # replace with round?
+        new_difficulty = floor(new_difficulty * 10) / Decimal(10)
         print(new_difficulty)
         return new_difficulty, last_block
 
     return last_block['difficulty'], last_block
-
-
-    if False:
-        return Decimal(5.0), last_block
-
-    elapsed_seconds = []
-
-    for i in range(1, limit):
-        elapsed_seconds.append((last_blocks[i - 1]['timestamp'] - last_blocks[i]['timestamp']).seconds)
-
-    print(elapsed_seconds)
-    blocks_mean = mean(elapsed_seconds)
-    print(blocks_mean)
-    current_difficulty = last_block['difficulty']
-
-    difference = blocks_mean - BLOCK_TIME
-    print(difference)
-    if current_difficulty < 1:
-        current_difficulty = 1
-    if difference < BLOCK_TIME * -0.2:
-        print('next')
-        return next_difficulty(current_difficulty), last_block
-    elif difference > BLOCK_TIME * 0.2:
-        print('precedent')
-        return precedent_difficulty(current_difficulty), last_block
-    print('same')
-    return current_difficulty, last_block
 
 
 async def get_difficulty() -> Tuple[Decimal, dict]:
@@ -116,10 +74,6 @@ async def check_block_is_valid(block_content: str) -> bool:
 
     block_hash = sha256(block_content)
 
-    #print(last_block)
-    #print(difficulty)
-    #print(block_hash)
-    #print(block_content)
     if 'hash' not in last_block:
         return True
 
@@ -175,6 +129,7 @@ async def clear_pending_transactions():
             tx_inputs = [f"{tx_input.tx_hash}{tx_input.index}" for tx_input in transaction.inputs]
             if any(used_input in tx_inputs for used_input in used_inputs):
                 await database.remove_pending_transaction(sha256(transaction.hex()))
+                return await clear_pending_transactions()
             used_inputs += tx_inputs
 
 
@@ -182,7 +137,6 @@ def get_transactions_merkle_tree(transactions: List[Union[Transaction, str]]):
     _bytes = bytes()
     for transaction in transactions:
         _bytes += hashlib.sha256(bytes.fromhex(transaction.hex() if isinstance(transaction, Transaction) else transaction)).digest()
-    #print(len(transactions))
     return hashlib.sha256(_bytes).hexdigest()
 
 
@@ -244,14 +198,13 @@ async def create_block(block_content: str, transactions: List[Transaction], chec
             found_coinbase = True
             continue
         if not await transaction.verify():
-            print(get_json(transaction))
-            print('ue ualgui sono dentro manager create block')
-            #await database.remove_pending_transaction(sha256(transaction.hex()))
+            print('transaction has been not verified')
             return False
         else:
             tx_inputs = [f"{tx_input.tx_hash}{tx_input.index}" for tx_input in transaction.inputs]
             if any(used_input in tx_inputs for used_input in used_inputs):
-                exit('ae ho trovato double spend prima')
+                await database.remove_pending_transaction(sha256(transaction.hex()))
+                return False
             else:
                 used_inputs += tx_inputs
             fees += transaction.fees
@@ -285,9 +238,8 @@ async def create_block(block_content: str, transactions: List[Transaction], chec
             added_transactions.append(transaction)
         else:
             await database.remove_pending_transaction(sha256(transaction.hex()))
-            print('aeo ho trovato una transazione rimossa dopo' + "\n\n\n\n\n")
-            print(get_json(transaction))
-            exit()
+            await database.delete_block(await database.get_next_block_id() - 1)
+            return False
 
     print(f'Added {tx_count} transactions in block (+ coinbase). Reward: {block_reward}, Fees: {fees}')
     Manager.difficulty = None

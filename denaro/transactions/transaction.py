@@ -75,8 +75,7 @@ class Transaction:
                 input_output = tx.outputs[tx_input.index]
                 input_amount += input_output.amount
                 txs: List[Transaction] = await Database.instance.get_transactions_by_contains(tx_input.tx_hash)
-                #txs += await Database.instance.get_pending_transactions_by_contains(tx_input.tx_hash)
-                # FIXME FORSE IL FOR NON é NECESSARIO
+
                 for related_tx in txs:
                     for related_input in related_tx.inputs:
                         if related_input.tx_hash == tx_input.tx_hash and related_input.index == tx_input.index:
@@ -112,23 +111,17 @@ class Transaction:
     async def from_hex(hexstring: str, check_signatures: bool = True):
         tx_bytes = BytesIO(bytes.fromhex(hexstring))
         version = int.from_bytes(tx_bytes.read(1), ENDIAN)
-        #print(version)
 
         inputs_count = int.from_bytes(tx_bytes.read(1), ENDIAN)
-        #print(inputs_count)
 
         inputs = []
 
         for i in range(0, inputs_count):
             tx_hex = tx_bytes.read(32).hex()
-            #print(tx_hex)
             tx_index = int.from_bytes(tx_bytes.read(1), ENDIAN)
-            #print(tx_index)
             inputs.append(TransactionInput(tx_hex, index=tx_index))
 
-        #print(inputs)
         outputs_count = int.from_bytes(tx_bytes.read(1), ENDIAN)
-        #print(outputs_count)
 
         outputs = []
 
@@ -136,10 +129,8 @@ class Transaction:
             pubkey = tx_bytes.read(64)
             amount_length = int.from_bytes(tx_bytes.read(1), ENDIAN)
             amount = int.from_bytes(tx_bytes.read(amount_length), ENDIAN) / Decimal(SMALLEST)
-            #print(amount)
             outputs.append(TransactionOutput(bytes_to_point(pubkey), amount))
 
-        #print(outputs)
         if not check_signatures:
             return Transaction(inputs, outputs)
 

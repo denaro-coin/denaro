@@ -1,10 +1,7 @@
-import json
 from decimal import Decimal
 from typing import Tuple
 
 from fastecdsa import ecdsa, keys
-from fastecdsa.point import Point
-from icecream import ic
 
 from ..constants import CURVE, ENDIAN
 from ..helpers import point_to_string

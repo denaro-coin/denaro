@@ -16,9 +16,9 @@ class CoinbaseTransaction:
 
     async def verify(self):
         from .. import Database
+        from ..manager import get_block_reward
         block = await (await Database.get()).get_block(self.block_hash)
-        print(block)
-        return block['address'] == self.address and self.amount == block['reward']
+        return block['address'] == self.address and self.amount == get_block_reward(block['id'])
 
     def hex(self):
         if self._hex is not None:
