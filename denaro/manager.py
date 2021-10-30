@@ -174,9 +174,8 @@ async def clear_pending_transactions():
         else:
             tx_inputs = [f"{tx_input.tx_hash}{tx_input.index}" for tx_input in transaction.inputs]
             if any(used_input in tx_inputs for used_input in used_inputs):
-                exit('ae ho trovato double spend prima')
-            else:
-                used_inputs += tx_inputs
+                await database.remove_pending_transaction(sha256(transaction.hex()))
+            used_inputs += tx_inputs
 
 
 def get_transactions_merkle_tree(transactions: List[Union[Transaction, str]]):
