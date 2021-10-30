@@ -163,7 +163,7 @@ def __check():
     print(index)
 
 
-async def clear_pending_transaction():
+async def clear_pending_transactions():
     database: Database = Database.instance
     transactions = await database.get_pending_transactions_limit(1000)
 

@@ -299,7 +299,6 @@ async def add_node(url: str):
 @app.get("/get_nodes")
 async def get_nodes():
     nodes = NodesManager.get_nodes()
-    NodesManager.sync()
     return {'ok': True, 'result': nodes}
 
 
@@ -325,7 +324,7 @@ async def get_block(block: str):
         txs = await db.get_block_transactions(block_hash)
         return {'ok': True, 'result': {
             'block': block_info,
-            'transactions': [tx['tx_hex'] for tx in txs]
+            'transactions': [tx.hex() for tx in txs]
         }}
     else:
         return {'ok': False, 'error': 'Not found block'}
