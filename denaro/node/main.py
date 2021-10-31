@@ -4,7 +4,7 @@ from os import environ
 from typing import List, Union
 
 import requests
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from icecream import ic
 from starlette.requests import Request
 
@@ -200,8 +200,14 @@ async def push_tx(tx_hex: str):
         return {'ok': False, 'error': 'Sent HEX is not valid'}
 
 
+@app.post("/push_block")
 @app.get("/push_block")
-async def push_block(request: Request, block_content: str, txs, id: int = None):
+async def push_block(request: Request, block_content: str = '', txs='', body=Body(False), id: int = None):
+    if body:
+        print(body)
+        txs = body['txs']
+        if 'block_content' in body:
+            block_content = body['block_content']
     if isinstance(txs, str):
         txs = txs.split(',')
         if txs == ['']:
