@@ -149,7 +149,7 @@ class Database:
     async def get_block_transactions(self, block_hash: str) -> List[Union[Transaction, CoinbaseTransaction]]:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch('SELECT * FROM transactions WHERE block_hash = $1', block_hash)
-            return [await Transaction.from_hex(tx['tx_hex']) for tx in txs] if txs is not None else None
+            return [await Transaction.from_hex(tx['tx_hex'], False) for tx in txs] if txs is not None else None
 
     async def get_spendable_outputs(self, address: str, check_pending_txs: bool = False) -> List[TransactionInput]:
         async with self.pool.acquire() as connection:
