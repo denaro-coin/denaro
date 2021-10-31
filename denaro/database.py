@@ -104,8 +104,9 @@ class Database:
         except asyncpg.exceptions.InsufficientPrivilegeError:
             pass
         async with self.pool.acquire() as connection:
-            stmt = await connection.prepare('INSERT INTO blocks (hash, address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6)')
+            stmt = await connection.prepare('INSERT INTO blocks (id, hash, address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)')
             await stmt.fetchval(
+                await self.get_next_block_id(),
                 block_hash,
                 address,
                 random,
