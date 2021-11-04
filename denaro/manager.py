@@ -140,6 +140,14 @@ def get_transactions_merkle_tree(transactions: List[Union[Transaction, str]]):
     return hashlib.sha256(_bytes).hexdigest()
 
 
+def block_to_bytes(last_block_hash: str, block: dict) -> bytes:
+    return bytes.fromhex(last_block_hash) + \
+           bytes.fromhex(block['address']) + \
+           bytes.fromhex(block['merkle_tree']) + \
+           block['timestamp'].to_bytes(4, byteorder=ENDIAN) + \
+           int(block['difficulty'] * 10).to_bytes(2, ENDIAN) \
+           + block['random'].to_bytes(4, ENDIAN)
+
 def split_block_content(block_content: str):
     _bytes = BytesIO(bytes.fromhex(block_content))
     previous_hash = _bytes.read(32).hex()
