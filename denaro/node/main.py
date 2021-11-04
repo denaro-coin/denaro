@@ -10,7 +10,7 @@ from starlette.requests import Request
 
 from denaro.helpers import timestamp, sha256
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, check_block_is_valid, \
-    split_block_content, calculate_difficulty, clear_pending_transactions
+    split_block_content, calculate_difficulty, clear_pending_transactions, block_to_bytes
 from denaro.node.nodes_manager import NodesManager
 from denaro.transactions import Transaction
 from denaro import Database
@@ -87,15 +87,14 @@ async def sync_blockchain(node_url: str = None):
             return
         node_url = nodes[0]
     node_url = node_url.strip('/')
-    _, last_block = await get_difficulty()
-
+    _, last_block = await calculate_difficulty()
+    last_block_hash = last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()
     limit = 1000
     while True:
         print(i)
         try:
             r = requests.get(f'{node_url}/get_blocks', {'offset': i, 'limit': limit}, timeout=10)
             res = r.json()
-            print(res)
         except Exception as e:
             print(e)
             NodesManager.get_nodes().remove(node_url)
@@ -106,20 +105,30 @@ async def sync_blockchain(node_url: str = None):
             break
         else:
             blocks = res['result']
+            if not blocks:
+                return
         for block_info in blocks:
             block = block_info['block']
             txs_hex = block_info['transactions']
             txs = [await Transaction.from_hex(tx) for tx in txs_hex]
             try:
-                block_content = bytes.fromhex(last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()) + bytes.fromhex(block['address']) + bytes.fromhex(
-                    get_transactions_merkle_tree(txs_hex[1:])) + block['timestamp'].to_bytes(4, byteorder=ENDIAN) + int(block['difficulty'] * 10).to_bytes(2, ENDIAN) + block['random'].to_bytes(4, ENDIAN)
+                block['merkle_tree'] = get_transactions_merkle_tree(txs_hex[1:])
+                block_content = block_to_bytes(last_block_hash, block)
+
+                # this is a weird bug: it seems that some transactions are not included in get_blocks for some reasons
+                if sha256(block_content) != block['hash']:
+                    txs = requests.get(f'{node_url}/get_block', {'block': i}, timeout=10).json()['result']['transactions']
+                    txs = [await Transaction.from_hex(tx) for tx in txs]
+                    block['merkle_tree'] = get_transactions_merkle_tree(txs[1:])
+                    block_content = block_to_bytes(last_block_hash, block)
+                assert i == block['id']
                 if await create_block(block_content.hex(), txs) == False:
-                    break
+                    return
+                last_block_hash = block['hash']
             except:
                 raise
                 break
-        i += limit
-        last_block = block
+            i += 1
         Manager.difficulty = None
 
 
