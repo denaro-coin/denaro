@@ -145,8 +145,8 @@ class Database:
 
     async def get_blocks(self, offset: int, limit: int) -> list:
         async with self.pool.acquire() as connection:
-            transactions: list = await connection.fetch(f'SELECT tx_hex, block_hash FROM transactions WHERE block_hash = ANY(SELECT hash FROM blocks WHERE id >= $1 LIMIT $2)', offset, limit)
-            blocks = await connection.fetch(f'SELECT * FROM blocks WHERE id >= $1 LIMIT $2', offset, limit)
+            transactions: list = await connection.fetch(f'SELECT tx_hex, block_hash FROM transactions WHERE block_hash = ANY(SELECT hash FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2)', offset, limit)
+            blocks = await connection.fetch(f'SELECT * FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2', offset, limit)
             result = []
         for block in blocks:
             block = dict(block)
