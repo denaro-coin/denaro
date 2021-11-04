@@ -152,8 +152,7 @@ def split_block_content(block_content: str):
     return previous_hash, public_key, merkle_tree, timestamp, difficulty, random
 
 
-# remove check_current_time
-async def create_block(block_content: str, transactions: List[Transaction], check_current_time: bool = True):
+async def create_block(block_content: str, transactions: List[Transaction]):
     Manager.difficulty = None
     if not await check_block_is_valid(block_content):
         print('block not valid')

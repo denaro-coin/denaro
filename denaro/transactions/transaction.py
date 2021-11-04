@@ -131,15 +131,15 @@ class Transaction:
             amount = int.from_bytes(tx_bytes.read(amount_length), ENDIAN) / Decimal(SMALLEST)
             outputs.append(TransactionOutput(bytes_to_point(pubkey), amount))
 
-        if not check_signatures:
-            return Transaction(inputs, outputs)
-
         specifier = int.from_bytes(tx_bytes.read(1), ENDIAN)
         if specifier == 36:
             assert len(inputs) == 1 and len(outputs) == 1
             from . import CoinbaseTransaction
             return CoinbaseTransaction(inputs[0].tx_hash, outputs[0].address, outputs[0].amount)
         else:
+            if not check_signatures:
+                return Transaction(inputs, outputs)
+
             assert specifier == 0
 
             signatures = []

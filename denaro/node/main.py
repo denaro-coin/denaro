@@ -89,11 +89,11 @@ async def sync_blockchain(node_url: str = None):
     node_url = node_url.strip('/')
     _, last_block = await get_difficulty()
 
-    # fixme should validate blocks?
+    limit = 1000
     while True:
         print(i)
         try:
-            r = requests.get(f'{node_url}/get_block', {'block': i}, timeout=5)
+            r = requests.get(f'{node_url}/get_blocks', {'offset': i, 'limit': limit}, timeout=10)
             res = r.json()
             print(res)
         except Exception as e:
@@ -105,19 +105,20 @@ async def sync_blockchain(node_url: str = None):
             print(res)
             break
         else:
-            res = res['result']
-        block = res['block']
-        txs_hex = res['transactions']
-        txs = [await Transaction.from_hex(tx) for tx in txs_hex]
-        try:
-            block_content = bytes.fromhex(last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()) + bytes.fromhex(block['address']) + bytes.fromhex(
-                get_transactions_merkle_tree(txs_hex[1:])) + block['timestamp'].to_bytes(4, byteorder=ENDIAN) + int(block['difficulty'] * 10).to_bytes(2, ENDIAN) + block['random'].to_bytes(4, ENDIAN)
-            if await create_block(block_content.hex(), txs, False) == False:
+            blocks = res['result']
+        for block_info in blocks:
+            block = block_info['block']
+            txs_hex = block_info['transactions']
+            txs = [await Transaction.from_hex(tx) for tx in txs_hex]
+            try:
+                block_content = bytes.fromhex(last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()) + bytes.fromhex(block['address']) + bytes.fromhex(
+                    get_transactions_merkle_tree(txs_hex[1:])) + block['timestamp'].to_bytes(4, byteorder=ENDIAN) + int(block['difficulty'] * 10).to_bytes(2, ENDIAN) + block['random'].to_bytes(4, ENDIAN)
+                if await create_block(block_content.hex(), txs) == False:
+                    break
+            except:
+                raise
                 break
-        except:
-            raise
-            break
-        i += 1
+        i += limit
         last_block = block
         Manager.difficulty = None
 
@@ -334,3 +335,9 @@ async def get_block(block: str):
         }}
     else:
         return {'ok': False, 'error': 'Not found block'}
+
+
+@app.get("/get_blocks")
+async def get_blocks(offset: int, limit: int):
+    blocks = await db.get_blocks(offset, limit)
+    return {'ok': True, 'result': blocks}

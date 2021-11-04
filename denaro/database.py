@@ -143,14 +143,33 @@ class Database:
         async with self.pool.acquire() as connection:
             return await connection.fetchrow('SELECT * FROM blocks WHERE hash = $1', block_hash)
 
+    async def get_blocks(self, offset: int, limit: int) -> list:
+        async with self.pool.acquire() as connection:
+            transactions: list = await connection.fetch(f'SELECT tx_hex, block_hash FROM transactions WHERE block_hash = ANY(SELECT hash FROM blocks WHERE id >= $1 LIMIT $2)', offset, limit)
+            blocks = await connection.fetch(f'SELECT * FROM blocks WHERE id >= $1 LIMIT $2', offset, limit)
+            result = []
+        for block in blocks:
+            block = dict(block)
+            block['timestamp'] = int(block['timestamp'].timestamp())
+            txs = []
+            for transaction in transactions:
+                if transaction['block_hash'] == block['hash']:
+                    transactions.remove(transaction)
+                    txs.append(transaction['tx_hex'])
+            result.append({
+                'block': block,
+                'transactions': txs
+            })
+        return result
+
     async def get_block_by_id(self, block_id: int) -> Record:
         async with self.pool.acquire() as connection:
             return await connection.fetchrow('SELECT * FROM blocks WHERE id = $1', block_id)
 
-    async def get_block_transactions(self, block_hash: str) -> List[Union[Transaction, CoinbaseTransaction]]:
+    async def get_block_transactions(self, block_hash: str, check_signatures: bool = True) -> List[Union[Transaction, CoinbaseTransaction]]:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch('SELECT * FROM transactions WHERE block_hash = $1', block_hash)
-            return [await Transaction.from_hex(tx['tx_hex']) for tx in txs] if txs is not None else None
+            return [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs] if txs is not None else None
 
     async def get_spendable_outputs(self, address: str, check_pending_txs: bool = False) -> List[TransactionInput]:
         async with self.pool.acquire() as connection:
