@@ -150,7 +150,10 @@ class Transaction:
                     break
                 signatures.append(signed)
 
-            if len(inputs) == len(signatures):
+            if len(signatures) == 1:
+                for tx_input in inputs:
+                    tx_input.signed = signatures[0]
+            elif len(inputs) == len(signatures):
                 for i, tx_input in enumerate(inputs):
                     tx_input.signed = signatures[i]
             else:
