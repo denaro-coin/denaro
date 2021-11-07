@@ -34,7 +34,7 @@ async def run():
         prefix = bytes.fromhex(last_block['hash']) + bytes.fromhex(address) + bytes.fromhex(merkle_tree) + a.to_bytes(4, byteorder=ENDIAN) + int(difficulty * 10).to_bytes(2, ENDIAN)
 
         found = True
-        while not await check_block_is_valid(_hex := prefix + i.to_bytes(4, ENDIAN)):
+        while not await check_block_is_valid(_hex := prefix + i.to_bytes(4, ENDIAN), (difficulty, last_block)):
             i += 1
             if i % 1000000 == 0:
                 elapsed_time = time.process_time() - t
@@ -45,9 +45,9 @@ async def run():
                     break
         if found:
             await sync_blockchain()
-            print(await node.push_block(None, _hex.hex(), [tx.hex() for tx in txs]))
+            res = await node.push_block(None, _hex.hex(), [tx.hex() for tx in txs], False)
             Manager.difficulty = None
-            if txs:
+            if res['ok'] and txs:
                 for tx in txs:
                     await db.remove_pending_transaction(sha256(tx.hex()))
 

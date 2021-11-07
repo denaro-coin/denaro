@@ -69,8 +69,10 @@ async def get_difficulty() -> Tuple[Decimal, dict]:
     return Manager.difficulty
 
 
-async def check_block_is_valid(block_content: str) -> bool:
-    difficulty, last_block = await get_difficulty()
+async def check_block_is_valid(block_content: str, mining_info: tuple = None) -> bool:
+    if mining_info is None:
+        mining_info = await get_difficulty()
+    difficulty, last_block = mining_info
 
     block_hash = sha256(block_content)
 
