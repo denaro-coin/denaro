@@ -181,8 +181,8 @@ async def create_block(block_content: str, transactions: List[Transaction]):
         print('timestamp younger than previous block')
         return False
 
-    if content_time - timestamp() > 60 * 60 * 2:
-        print('timestamp older than 2 hours in the future')
+    if content_time > timestamp():
+        print('timestamp in the future')
         return False
 
     database: Database = Database.instance
