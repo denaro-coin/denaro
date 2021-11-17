@@ -1,5 +1,3 @@
-import sys
-import traceback
 from datetime import datetime
 from decimal import Decimal
 from dateutil import parser
@@ -7,13 +5,10 @@ from typing import List, Union
 
 import asyncpg
 from asyncpg import Connection, Record, Pool
-from icecream import ic
 
 from .helpers import sha256, point_to_string, string_to_point, point_to_bytes
 from .transactions import Transaction, CoinbaseTransaction, TransactionInput
 
-_print = print
-print = ic
 
 class Database:
     connection: Connection = None
@@ -118,7 +113,6 @@ class Database:
         Manager.difficulty = None
 
     async def get_transaction(self, tx_hash: str, check_signatures: bool = True) -> Union[Transaction, CoinbaseTransaction]:
-        #traceback.print_stack(file=sys.stdout)
         async with self.pool.acquire() as connection:
             res = await connection.fetchrow('SELECT tx_hex FROM transactions WHERE tx_hash = $1', tx_hash)
         return await Transaction.from_hex(res['tx_hex'], check_signatures) if res is not None else None

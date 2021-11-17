@@ -3,14 +3,13 @@ from datetime import datetime
 from decimal import Decimal
 from io import BytesIO
 from math import ceil, floor, log
-from statistics import mean
 from typing import Tuple, List, Union
 
 from icecream import ic
 
 from . import Database
 from .constants import MAX_SUPPLY, ENDIAN
-from .helpers import sha256, get_json, timestamp
+from .helpers import sha256, timestamp
 from .transactions import CoinbaseTransaction, Transaction
 
 BLOCK_TIME = 180
@@ -48,16 +47,12 @@ async def calculate_difficulty() -> Tuple[Decimal, dict]:
         elapsed = last_block['timestamp'] - last_adjust_block['timestamp']
         elapsed = Decimal(elapsed.total_seconds())
         average_per_block = elapsed / BLOCKS_COUNT
-        print(average_per_block)
         last_difficulty = last_block['difficulty']
         hashrate = difficulty_to_hashrate(last_difficulty)
         ratio = BLOCK_TIME / average_per_block
-        print(ratio)
         hashrate *= ratio
         new_difficulty = hashrate_to_difficulty(hashrate)
-        print(new_difficulty)
         new_difficulty = floor(new_difficulty * 10) / Decimal(10)
-        print(new_difficulty)
         return new_difficulty, last_block
 
     return last_block['difficulty'], last_block
@@ -163,17 +158,14 @@ def split_block_content(block_content: str):
 
 
 async def create_block(block_content: str, transactions: List[Transaction]):
-    Manager.difficulty = None
     if not await check_block_is_valid(block_content):
         print('block not valid')
         return False
 
-    print(block_content)
     difficulty, last_block = await get_difficulty()
 
     block_hash = sha256(block_content)
     previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
-    print(merkle_tree)
     content_difficulty = Decimal(str(content_difficulty))
     content_time = int(content_time)
     if last_block != {} and (len(block_content) > 138 * 2 or previous_hash != last_block['hash']):
@@ -225,7 +217,8 @@ async def create_block(block_content: str, transactions: List[Transaction]):
         print(get_transactions_merkle_tree(transactions))
         return False
 
-    block_reward = get_block_reward(await database.get_next_block_id())
+    block_no = await database.get_next_block_id()
+    block_reward = get_block_reward(block_no)
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
 
     try:
@@ -247,7 +240,7 @@ async def create_block(block_content: str, transactions: List[Transaction]):
             added_transactions.append(transaction)
         else:
             await database.remove_pending_transaction(sha256(transaction.hex()))
-            await database.delete_block(await database.get_next_block_id() - 1)
+            await database.delete_block(block_no)
             return False
 
     print(f'Added {tx_count} transactions in block (+ coinbase). Reward: {block_reward}, Fees: {fees}')

@@ -7,7 +7,7 @@ from icecream import ic
 from . import TransactionInput, TransactionOutput
 from ..exceptions import DoubleSpendException
 from ..constants import ENDIAN, SMALLEST, VERSION, MAX_TX_HEX_LENGTH
-from ..helpers import bytes_to_point, point_to_string, get_json, sha256
+from ..helpers import bytes_to_point, point_to_string
 
 print = ic
 
@@ -80,13 +80,6 @@ class Transaction:
                     for related_input in related_tx.inputs:
                         if related_input.tx_hash == tx_input.tx_hash and related_input.index == tx_input.index:
                             print('double spend')
-                            related_tx.hex()
-                            print(get_json(related_tx))
-                            """print(sha256(related_tx.hex()))
-                            print(get_json(self))
-                            print(tx_input.tx_hash)
-                            print(tx_input.index)
-                            # exit()"""
                             return False
 
         output_amount = Decimal(0)

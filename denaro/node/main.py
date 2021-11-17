@@ -152,9 +152,8 @@ def read_root():
 async def middleware(request: Request, call_next):
     global started, self_url
     nodes = NodesManager.get_nodes()
-    print(request.url)
+    hostname = request.base_url.hostname
     self_url = str(request.base_url).strip('/')
-    print(self_url)
     try:
         nodes.remove(self_url)
     except ValueError:
@@ -166,7 +165,7 @@ async def middleware(request: Request, call_next):
 
     NodesManager.sync()
 
-    if nodes and not started:
+    if nodes and not started or (ip_is_local(hostname) or hostname == 'localhost'):
         await sync_blockchain()
         try:
             node_url = nodes[0]
@@ -178,15 +177,11 @@ async def middleware(request: Request, call_next):
         except:
             pass
 
-        hostname = request.base_url.hostname
         if not (ip_is_local(hostname) or hostname == 'localhost'):
-            print('here')
             started = True
 
             try:
-                print('here')
                 await propagate('add_node', {'url': self_url})
-                print('after propagate')
             except:
                 pass
     try:
@@ -214,7 +209,6 @@ async def push_tx(tx_hex: str):
 @app.get("/push_block")
 async def push_block(request: Request, block_content: str = '', txs='', body=Body(False), id: int = None):
     if body:
-        print(body)
         txs = body['txs']
         if 'block_content' in body:
             block_content = body['block_content']
@@ -268,7 +262,6 @@ async def push_full_block(request, block_content: str, txs=[], id: int = None):
 async def get_mining_info():
     Manager.difficulty = None
     difficulty, last_block = await get_difficulty()
-    print(last_block)
     last_block['timestamp'] = int(last_block['timestamp'].timestamp())
     await clear_pending_transactions()
     pending_transactions = await db.get_pending_transactions_limit(1000)
