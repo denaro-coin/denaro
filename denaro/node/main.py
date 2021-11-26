@@ -12,7 +12,7 @@ from denaro.helpers import timestamp, sha256
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, check_block_is_valid, \
     split_block_content, calculate_difficulty, clear_pending_transactions, block_to_bytes
 from denaro.node.nodes_manager import NodesManager
-from denaro.transactions import Transaction
+from denaro.transactions import Transaction, CoinbaseTransaction
 from denaro import Database
 from denaro.constants import VERSION, ENDIAN
 
@@ -118,8 +118,12 @@ async def sync_blockchain(node_url: str = None):
                 # this is a weird bug: it seems that some transactions are not included in get_blocks for some reasons
                 if sha256(block_content) != block['hash']:
                     txs = requests.get(f'{node_url}/get_block', {'block': i}, timeout=10).json()['result']['transactions']
-                    txs = [await Transaction.from_hex(tx) for tx in txs]
-                    block['merkle_tree'] = get_transactions_merkle_tree(txs[1:])
+                    merkle_tree_txs = txs = [await Transaction.from_hex(tx) for tx in txs]
+                    for tx in merkle_tree_txs:
+                        if isinstance(tx, CoinbaseTransaction):
+                            merkle_tree_txs.remove(tx)
+                            break
+                    block['merkle_tree'] = get_transactions_merkle_tree(merkle_tree_txs)
                     block_content = block_to_bytes(last_block_hash, block)
                 assert i == block['id']
                 if await create_block(block_content.hex(), txs) == False:
