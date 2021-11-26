@@ -266,6 +266,7 @@ async def push_full_block(request, block_content: str, txs=[], id: int = None):
 async def get_mining_info():
     Manager.difficulty = None
     difficulty, last_block = await get_difficulty()
+    last_block = last_block.copy()
     last_block['timestamp'] = int(last_block['timestamp'].timestamp())
     await clear_pending_transactions()
     pending_transactions = await db.get_pending_transactions_limit(1000)
