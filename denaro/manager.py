@@ -20,22 +20,39 @@ _print = print
 print = ic
 
 
-def difficulty_to_hashrate(difficulty: Decimal) -> int:
+def difficulty_to_hashrate_old(difficulty: Decimal) -> int:
     decimal = difficulty % 1 or 1/16
     return Decimal(16 ** int(difficulty) * (16 * decimal))
 
+def difficulty_to_hashrate(difficulty: Decimal) -> int:
+    decimal = difficulty % 1
+    return Decimal(16 ** int(difficulty) * (16 / ceil(16 * (1 - decimal))))
 
-def hashrate_to_difficulty(hashrate: int) -> Decimal:
+
+def hashrate_to_difficulty_old(hashrate: int) -> Decimal:
     difficulty = int(log(hashrate, 16))
     if hashrate == 16 ** difficulty:
         return Decimal(difficulty)
     return Decimal(difficulty + (hashrate / Decimal(16) ** difficulty) / 16)
 
+def hashrate_to_difficulty(hashrate: int) -> Decimal:
+    difficulty = int(log(hashrate, 16))
+    if hashrate == 16 ** difficulty:
+        return Decimal(difficulty)
+    ratio = hashrate / 16 ** difficulty
+
+    decimal = 16 / ratio / 16
+    decimal = 1 - floor(decimal * 10) / Decimal(10)
+    return Decimal(difficulty + decimal)
+
+
+print(hashrate_to_difficulty(difficulty_to_hashrate_old(Decimal('7.1'))))
+
 
 async def calculate_difficulty() -> Tuple[Decimal, dict]:
     database = Database.instance
     async with database.pool.acquire() as connection:
-        last_block = await connection.fetchrow(f"SELECT * FROM blocks ORDER BY id DESC LIMIT 1")
+        last_block = await connection.fetchrow("SELECT * FROM blocks ORDER BY id DESC LIMIT 1")
     if last_block is None:
         return START_DIFFICULTY, dict()
     last_block = dict(last_block)
@@ -48,10 +65,10 @@ async def calculate_difficulty() -> Tuple[Decimal, dict]:
         elapsed = Decimal(elapsed.total_seconds())
         average_per_block = elapsed / BLOCKS_COUNT
         last_difficulty = last_block['difficulty']
-        hashrate = difficulty_to_hashrate(last_difficulty)
+        hashrate = difficulty_to_hashrate_old(last_difficulty) if last_block['id'] <= 17500 else difficulty_to_hashrate(last_difficulty)
         ratio = BLOCK_TIME / average_per_block
         hashrate *= ratio
-        new_difficulty = hashrate_to_difficulty(hashrate)
+        new_difficulty = hashrate_to_difficulty_old(hashrate) if last_block['id'] < 17500 else hashrate_to_difficulty(hashrate)
         new_difficulty = floor(new_difficulty * 10) / Decimal(10)
         return new_difficulty, last_block
 
