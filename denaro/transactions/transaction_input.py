@@ -50,6 +50,9 @@ class TransactionInput:
     def tobytes(self):
         return bytes.fromhex(self.tx_hash) + self.index.to_bytes(1, ENDIAN)
 
+    def get_signature(self):
+        return self.signed[0].to_bytes(32, ENDIAN).hex() + self.signed[1].to_bytes(32, ENDIAN).hex()
+
     async def verify(self, input_tx) -> bool:
         public_key = await self.get_public_key()
         # print('verifying with', point_to_string(public_key))

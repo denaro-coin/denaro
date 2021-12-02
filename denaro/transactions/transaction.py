@@ -41,7 +41,7 @@ class Transaction:
 
         signatures = []
         for tx_input in inputs:
-            signed = tx_input.signed[0].to_bytes(32, ENDIAN).hex() + tx_input.signed[1].to_bytes(32, ENDIAN).hex()
+            signed = tx_input.get_signature()
             if signed not in signatures:
                 signatures.append(signed)
                 self._hex += signed
