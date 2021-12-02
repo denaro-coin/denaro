@@ -6,6 +6,7 @@ from typing import List, Union
 import requests
 from fastapi import FastAPI, Body
 from icecream import ic
+from starlette.background import BackgroundTasks
 from starlette.requests import Request
 
 from denaro.helpers import timestamp, sha256
@@ -263,17 +264,18 @@ async def push_full_block(request, block_content: str, txs=[], id: int = None):
 
 
 @app.get("/get_mining_info")
-async def get_mining_info():
+async def get_mining_info(background_tasks: BackgroundTasks):
     Manager.difficulty = None
     difficulty, last_block = await get_difficulty()
     last_block = last_block.copy()
     last_block['timestamp'] = int(last_block['timestamp'].timestamp())
-    await clear_pending_transactions()
-    pending_transactions = await db.get_pending_transactions_limit(1000)
+    if random.randint(0, 10) == 0:
+        background_tasks.add_task(clear_pending_transactions)
+    pending_transactions = await db.get_pending_transactions_limit(1000, True)
     return {'ok': True, 'result': {
         'difficulty': difficulty,
         'last_block': last_block,
-        'pending_transactions': [tx.hex() for tx in pending_transactions],
+        'pending_transactions': pending_transactions,
         'merkle_root': get_transactions_merkle_tree(pending_transactions)
     }}
 
