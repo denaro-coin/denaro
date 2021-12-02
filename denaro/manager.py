@@ -24,6 +24,7 @@ def difficulty_to_hashrate_old(difficulty: Decimal) -> int:
     decimal = difficulty % 1 or 1/16
     return Decimal(16 ** int(difficulty) * (16 * decimal))
 
+
 def difficulty_to_hashrate(difficulty: Decimal) -> int:
     decimal = difficulty % 1
     return Decimal(16 ** int(difficulty) * (16 / ceil(16 * (1 - decimal))))
@@ -35,6 +36,7 @@ def hashrate_to_difficulty_old(hashrate: int) -> Decimal:
         return Decimal(difficulty)
     return Decimal(difficulty + (hashrate / Decimal(16) ** difficulty) / 16)
 
+
 def hashrate_to_difficulty(hashrate: int) -> Decimal:
     difficulty = int(log(hashrate, 16))
     if hashrate == 16 ** difficulty:
@@ -44,9 +46,6 @@ def hashrate_to_difficulty(hashrate: int) -> Decimal:
     decimal = 16 / ratio / 16
     decimal = 1 - floor(decimal * 10) / Decimal(10)
     return Decimal(difficulty + decimal)
-
-
-print(hashrate_to_difficulty(difficulty_to_hashrate_old(Decimal('7.1'))))
 
 
 async def calculate_difficulty() -> Tuple[Decimal, dict]:
