@@ -67,20 +67,16 @@ class Transaction:
                 print('not signed')
                 return False
             from .. import Database
-            tx: Transaction = await Database.instance.get_transaction(tx_input.tx_hash)
-            if tx is None:
-                print('not found relative transaction')
-                return False
-            else:
-                input_output = tx.outputs[tx_input.index]
-                input_amount += input_output.amount
-                txs: List[Transaction] = await Database.instance.get_transactions_by_contains(tx_input.tx_hash)
+            tx: Transaction = await tx_input.get_transaction()
+            input_output = tx.outputs[tx_input.index]
+            input_amount += input_output.amount
+            txs: List[Transaction] = await Database.instance.get_transactions_by_contains(tx_input.tx_hash)
 
-                for related_tx in txs:
-                    for related_input in related_tx.inputs:
-                        if related_input.tx_hash == tx_input.tx_hash and related_input.index == tx_input.index:
-                            print('double spend')
-                            return False
+            for related_tx in txs:
+                for related_input in related_tx.inputs:
+                    if related_input.tx_hash == tx_input.tx_hash and related_input.index == tx_input.index:
+                        print('double spend')
+                        return False
 
         output_amount = Decimal(0)
         for tx_output in self.outputs:
