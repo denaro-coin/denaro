@@ -1,11 +1,11 @@
 import ipaddress
 import random
 from os import environ
-from typing import List, Union
 
 import requests
 from fastapi import FastAPI, Body
 from icecream import ic
+from requests import ReadTimeout
 from starlette.background import BackgroundTasks
 from starlette.requests import Request
 
@@ -75,7 +75,8 @@ async def propagate(path: str, args: dict, ignore = None):
             requests.get(f'{node_url}/{path}', args, timeout=5, headers={'Sender-Node': self_url})
         except Exception as e:
             print(e)
-            NodesManager.get_nodes().remove(_node_url)
+            if not isinstance(e, ReadTimeout):
+                NodesManager.get_nodes().remove(_node_url)
             NodesManager.sync()
 
 
@@ -296,7 +297,7 @@ async def get_address_info(address: str):
 
 
 @app.get("/add_node")
-async def add_node(url: str):
+async def add_node(url: str, background_tasks: BackgroundTasks):
     nodes = NodesManager.get_nodes()
     url = url.strip('/')
     if url == self_url:
@@ -306,7 +307,7 @@ async def add_node(url: str):
     else:
         try:
             assert NodesManager.is_node_working(url)
-            await propagate('add_node', {'url': url}, url)
+            background_tasks.add_task(propagate, 'add_node', {'url': url}, url)
             NodesManager.add_node(url)
             return {'ok': True, 'result': 'Node added'}
         except Exception as e:
