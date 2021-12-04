@@ -30,8 +30,7 @@ Then install denaro.
 git clone https://github.com/denaro-coin/denaro
 cd denaro
 pip3 install -r requirements.txt
-cd ..
-uvicorn denaro.node.main:app --port 3006 --wokers 2
+uvicorn denaro.node.main:app --port 3006 --workers 2
 ```
 
 Node should now sync the blockchain and start working
