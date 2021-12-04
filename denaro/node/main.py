@@ -147,6 +147,8 @@ async def startup():
         host=environ.get('DENARO_DATABASE_HOST', None)
     )
 
+    await sync_blockchain()
+
 
 @app.get("/")
 def read_root():
