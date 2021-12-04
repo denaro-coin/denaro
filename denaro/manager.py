@@ -167,7 +167,7 @@ def split_block_content(block_content: str):
     public_key = _bytes.read(64).hex()
     merkle_tree = _bytes.read(32).hex()
     timestamp = int.from_bytes(_bytes.read(4), ENDIAN)
-    difficulty = int.from_bytes(_bytes.read(2), ENDIAN) / 10
+    difficulty = int.from_bytes(_bytes.read(2), ENDIAN) / Decimal(10)
     random = int.from_bytes(_bytes.read(4), ENDIAN)
 
     return previous_hash, public_key, merkle_tree, timestamp, difficulty, random
@@ -182,7 +182,6 @@ async def create_block(block_content: str, transactions: List[Transaction]):
 
     block_hash = sha256(block_content)
     previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
-    content_difficulty = Decimal(str(content_difficulty))
     content_time = int(content_time)
     if last_block != {} and (len(block_content) > 138 * 2 or previous_hash != last_block['hash']):
         return False
