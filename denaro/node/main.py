@@ -138,7 +138,7 @@ async def sync_blockchain(node_url: str = None):
 
 
 @app.on_event("startup")
-async def create_database():
+async def startup():
     global db
     db = await Database.create(
         user=environ.get('DENARO_DATABASE_USER', 'denaro'),
