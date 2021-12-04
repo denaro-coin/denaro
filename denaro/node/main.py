@@ -11,7 +11,8 @@ from starlette.requests import Request
 
 from denaro.helpers import timestamp, sha256
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, check_block_is_valid, \
-    split_block_content, calculate_difficulty, clear_pending_transactions, block_to_bytes
+    split_block_content, calculate_difficulty, clear_pending_transactions, \
+    block_to_bytes, get_last_block
 from denaro.node.nodes_manager import NodesManager
 from denaro.transactions import Transaction, CoinbaseTransaction
 from denaro import Database
@@ -89,7 +90,7 @@ async def sync_blockchain(node_url: str = None):
             return
         node_url = nodes[0]
     node_url = node_url.strip('/')
-    _, last_block = await calculate_difficulty()
+    last_block = await get_last_block()
     last_block_hash = last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()
     limit = 1000
     while True:

@@ -73,6 +73,13 @@ async def calculate_difficulty() -> Tuple[Decimal, dict]:
 
     return last_block['difficulty'], last_block
 
+async def get_last_block() -> dict:
+    database = Database.instance
+    async with database.pool.acquire() as connection:
+        last_block = await connection.fetchrow(
+            "SELECT * FROM blocks ORDER BY id DESC LIMIT 1") or []
+    return dict(last_block)
+
 
 async def get_difficulty() -> Tuple[Decimal, dict]:
     if Manager.difficulty is None:
