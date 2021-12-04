@@ -19,7 +19,7 @@ class TransactionOutput:
         return point_to_bytes(self.public_key) + count.to_bytes(1, ENDIAN) + amount.to_bytes(count, ENDIAN)
 
     def verify(self):
-        return self.amount > 0 and CURVE.is_point_on_curve(self.public_key)
+        return self.amount > 0 and CURVE.is_point_on_curve((self.public_key.x, self.public_key.y))
 
     @property
     def as_dict(self):
