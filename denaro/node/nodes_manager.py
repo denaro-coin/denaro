@@ -10,6 +10,7 @@ class NodesManager:
 
     @staticmethod
     def init():
+        NodesManager.db._loaddb()
         NodesManager.nodes = NodesManager.db.get('nodes') or ['https://denaro-node.gaetano.eu.org']
 
     @staticmethod
@@ -20,7 +21,6 @@ class NodesManager:
     def is_node_working(node: str):
         try:
             r = requests.get(node, timeout=5)
-            print(r.json()) # FIXME
             return True
         except:
             return False
