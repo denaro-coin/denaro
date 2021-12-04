@@ -80,7 +80,7 @@ class Transaction:
 
         output_amount = Decimal(0)
         for tx_output in self.outputs:
-            if tx_output.amount == 0:
+            if not tx_output.verify():
                 return False
             output_amount += tx_output.amount
 

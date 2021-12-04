@@ -2,7 +2,7 @@ from decimal import Decimal
 
 from fastecdsa.point import Point
 
-from ..constants import ENDIAN, SMALLEST
+from ..constants import ENDIAN, SMALLEST, CURVE
 from ..helpers import byte_length, point_to_bytes, point_to_string
 
 
@@ -17,6 +17,9 @@ class TransactionOutput:
         amount = int(self.amount * SMALLEST)
         count = byte_length(amount)
         return point_to_bytes(self.public_key) + count.to_bytes(1, ENDIAN) + amount.to_bytes(count, ENDIAN)
+
+    def verify(self):
+        return self.amount > 0 and CURVE.is_point_on_curve(self.public_key)
 
     @property
     def as_dict(self):
