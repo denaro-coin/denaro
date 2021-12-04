@@ -1,12 +1,19 @@
+import json
 import os
+from os.path import dirname, exists
 
 import pickledb
 import requests
 
+path = dirname(os.path.realpath(__file__)) + '/nodes.json'
+if not exists(path):
+    json.dump({}, open(path, 'wt'))
+db = pickledb.load(path, True)
+
 
 class NodesManager:
     nodes: list = None
-    db = pickledb.load(os.path.dirname(os.path.realpath(__file__)) + '/nodes.json', True)
+    db = db
 
     @staticmethod
     def init():
