@@ -2,21 +2,20 @@ import asyncio
 import sys
 import time
 import denaro
-from denaro import node
 from denaro.constants import ENDIAN
 from denaro.manager import get_difficulty, check_block_is_valid, Manager, get_transactions_merkle_tree
 from denaro.helpers import sha256, timestamp
 
 from icecream import ic
 
-from denaro.node.main import sync_blockchain
+from denaro.node.main import sync_blockchain, push_block, startup
 
 _print = print
 print = ic
 
 
 async def run():
-    await denaro.node.main.create_database()
+    await startup()
     db = denaro.node.main.db
 
     while True:
@@ -45,7 +44,7 @@ async def run():
                     break
         if found:
             await sync_blockchain()
-            res = await node.push_block(None, _hex.hex(), [tx.hex() for tx in txs], False)
+            res = await push_block(None, _hex.hex(), [tx.hex() for tx in txs], False)
             Manager.difficulty = None
             if res['ok'] and txs:
                 for tx in txs:
