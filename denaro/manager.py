@@ -237,7 +237,7 @@ async def create_block(block_content: str, transactions: List[Transaction]):
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
 
     try:
-        await database.add_block(block_hash, address, random, difficulty, block_reward + fees, datetime.fromtimestamp(content_time))
+        await database.add_block((last_block['id'] if last_block != {} else 0) + 1, block_hash, address, random, difficulty, block_reward + fees, datetime.fromtimestamp(content_time))
     except Exception as e:
         print(e)
         raise
