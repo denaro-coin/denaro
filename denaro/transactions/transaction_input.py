@@ -54,7 +54,10 @@ class TransactionInput:
         return self.signed[0].to_bytes(32, ENDIAN).hex() + self.signed[1].to_bytes(32, ENDIAN).hex()
 
     async def verify(self, input_tx) -> bool:
-        public_key = await self.get_public_key()
+        try:
+            public_key = await self.get_public_key()
+        except AssertionError:
+            return False
         # print('verifying with', point_to_string(public_key))
 
         return ecdsa.verify(self.signed, input_tx, public_key, CURVE)
