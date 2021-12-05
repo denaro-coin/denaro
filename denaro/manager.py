@@ -161,6 +161,7 @@ def block_to_bytes(last_block_hash: str, block: dict) -> bytes:
            int(block['difficulty'] * 10).to_bytes(2, ENDIAN) \
            + block['random'].to_bytes(4, ENDIAN)
 
+
 def split_block_content(block_content: str):
     _bytes = BytesIO(bytes.fromhex(block_content))
     previous_hash = _bytes.read(32).hex()
@@ -174,6 +175,7 @@ def split_block_content(block_content: str):
 
 
 async def create_block(block_content: str, transactions: List[Transaction]):
+    Manager.difficulty = None
     if not await check_block_is_valid(block_content):
         print('block not valid')
         return False
