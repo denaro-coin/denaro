@@ -57,7 +57,7 @@ def ip_is_local(ip: str) -> bool:
     return False
 
 
-async def propagate(path: str, args: dict, ignore = None):
+def propagate(path: str, args: dict, ignore=None):
     global self_url
     nodes = NodesManager.get_nodes()
     print(args)
@@ -189,7 +189,7 @@ async def middleware(request: Request, call_next):
             started = True
 
             try:
-                await propagate('add_node', {'url': self_url})
+                propagate('add_node', {'url': self_url})
             except:
                 pass
     try:
@@ -202,11 +202,11 @@ async def middleware(request: Request, call_next):
 
 
 @app.get("/push_tx")
-async def push_tx(tx_hex: str):
+async def push_tx(tx_hex: str, background_tasks: BackgroundTasks):
     try:
         tx = await Transaction.from_hex(tx_hex)
         await db.add_pending_transaction(tx)
-        await propagate('push_tx', {'tx_hex': tx_hex})
+        background_tasks.add_task(propagate, 'push_tx', {'tx_hex': tx_hex})
         return {'ok': True, 'result': 'Transaction has been accepted'}
     except Exception as e:
         print(e)
@@ -215,7 +215,7 @@ async def push_tx(tx_hex: str):
 
 @app.post("/push_block")
 @app.get("/push_block")
-async def push_block(request: Request, block_content: str = '', txs='', body=Body(False), id: int = None):
+async def push_block(request: Request, background_tasks: BackgroundTasks, block_content: str = '', txs='', body=Body(False), id: int = None, ):
     if body:
         txs = body['txs']
         if 'block_content' in body:
@@ -246,8 +246,7 @@ async def push_block(request: Request, block_content: str = '', txs='', body=Bod
                     await sync_blockchain(sender_node)
                     return {'ok': False, 'error': 'Blockchain has been resynchronized according to sender node, block may have been accepted'}
             return {'ok': False}
-        await propagate('push_block', {'block_content': block_content, 'txs': ','.join(txs),
-                                       'id': id})
+        background_tasks.add_task(propagate, 'push_block', {'block_content': block_content, 'txs': ','.join(txs), 'id': id})
         for tx in added_transactions:
             await db.remove_pending_transaction(sha256(tx.hex()))
         return {'ok': True}
