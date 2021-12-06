@@ -251,12 +251,12 @@ async def create_block(block_content: str, transactions: List[Transaction]):
     tx_count = 0
     added_transactions = []
     for transaction in transactions:
+        await database.remove_pending_transaction(sha256(transaction.hex()))
         if await transaction.verify():
             tx_count += 1
             await database.add_transaction(transaction, block_hash)
             added_transactions.append(transaction)
         else:
-            await database.remove_pending_transaction(sha256(transaction.hex()))
             await database.delete_block(block_no)
             return False
 
