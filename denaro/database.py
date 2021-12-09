@@ -118,6 +118,11 @@ class Database:
             res = await connection.fetchrow('SELECT tx_hex FROM transactions WHERE tx_hash = $1', tx_hash)
         return await Transaction.from_hex(res['tx_hex'], check_signatures) if res is not None else None
 
+    async def get_pending_transaction(self, tx_hash: str, check_signatures: bool = True) -> Transaction:
+        async with self.pool.acquire() as connection:
+            res = await connection.fetchrow('SELECT tx_hex FROM pending_transactions WHERE tx_hash = $1', tx_hash)
+        return await Transaction.from_hex(res['tx_hex'], check_signatures) if res is not None else None
+
     async def get_transactions_by_contains(self, contains: str):
         async with self.pool.acquire() as connection:
             res = await connection.fetch('SELECT tx_hex FROM transactions WHERE tx_hex LIKE $1 AND tx_hash != $2', f"%{contains}%", contains)
