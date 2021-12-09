@@ -8,6 +8,7 @@ from icecream import ic
 from requests import ReadTimeout
 from starlette.background import BackgroundTasks
 from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 from denaro.helpers import timestamp, sha256
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, check_block_is_valid, \
@@ -200,6 +201,13 @@ async def middleware(request: Request, call_next):
         raise
         return {'ok': False, 'error': 'Internal error'}
 
+
+@app.exception_handler(Exception)
+async def exception_handler(request: Request, e: Exception):
+    return JSONResponse(
+        status_code=500,
+        content={"ok": False, "error": f"Uncaught {type(e).__name__} exception"},
+    )
 
 @app.get("/push_tx")
 async def push_tx(tx_hex: str, background_tasks: BackgroundTasks):
