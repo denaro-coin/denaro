@@ -30,7 +30,9 @@ class TransactionInput:
 
     async def get_related_output(self):
         tx = await self.get_transaction()
-        return tx.outputs[self.index]
+        related_output = tx.outputs[self.index]
+        self.amount = related_output.amount
+        return related_output
 
     @staticmethod
     def from_private_key(input_tx_hex: str, private_key: int, index: int = 0):
