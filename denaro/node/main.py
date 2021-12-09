@@ -1,6 +1,7 @@
 import ipaddress
 import random
 from os import environ
+from typing import Union
 
 import requests
 from fastapi import FastAPI, Body
@@ -331,6 +332,39 @@ async def get_nodes():
 @app.get("/get_pending_transactions")
 async def get_pending_transactions():
     return {'ok': True, 'result': [tx.hex() for tx in await db.get_pending_transactions_limit(1000)]}
+
+
+async def transaction_to_json(tx: Union[Transaction, CoinbaseTransaction], verify: bool = False):
+    if verify: await tx.verify()
+    if isinstance(tx, CoinbaseTransaction):
+        transaction = {'is_coinbase': True, 'block_hash': tx.block_hash, 'outputs': []}
+    else:
+        transaction = {'is_coinbase': False, 'block_hash': tx.block_hash, 'inputs': [], 'outputs': [], 'fees': tx.fees}
+        for input in tx.inputs:
+            related_transaction = await transaction_to_json(await input.get_transaction()) if verify else None
+            transaction['inputs'].append({
+                'index': input.index,
+                'tx_hash': input.tx_hash,
+                'signature': input.get_signature() if verify else None,
+                'address': (await input.get_related_output()).address if verify else None,
+                'amount': input.amount,
+                'transaction': related_transaction
+            })
+    for output in tx.outputs:
+        transaction['outputs'].append({
+            'address': output.address,
+            'amount': output.amount
+        })
+    return transaction
+
+
+@app.get("/get_transaction")
+async def get_transaction(tx_hash: str, verify: bool = False):
+    tx = await db.get_transaction(tx_hash) or await db.get_pending_transaction(tx_hash)
+    if tx is None:
+        return {'ok': False, 'error': 'Transaction not found'}
+    transaction = await transaction_to_json(tx, verify)
+    return {'ok': True, 'result': transaction}
 
 
 @app.get("/get_block")
