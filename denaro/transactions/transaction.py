@@ -15,6 +15,7 @@ print = ic
 class Transaction:
     _hex: str = None
     fees: Decimal = None
+    block_hash: str = None
 
     def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput]):
         assert len(inputs) < 256

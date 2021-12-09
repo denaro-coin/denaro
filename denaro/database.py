@@ -115,8 +115,11 @@ class Database:
 
     async def get_transaction(self, tx_hash: str, check_signatures: bool = True) -> Union[Transaction, CoinbaseTransaction]:
         async with self.pool.acquire() as connection:
-            res = await connection.fetchrow('SELECT tx_hex FROM transactions WHERE tx_hash = $1', tx_hash)
-        return await Transaction.from_hex(res['tx_hex'], check_signatures) if res is not None else None
+            res = tx = await connection.fetchrow('SELECT tx_hex, block_hash FROM transactions WHERE tx_hash = $1', tx_hash)
+        if res is not None:
+            tx = await Transaction.from_hex(res['tx_hex'], check_signatures)
+            tx.block_hash = res['block_hash']
+        return tx
 
     async def get_pending_transaction(self, tx_hash: str, check_signatures: bool = True) -> Transaction:
         async with self.pool.acquire() as connection:
