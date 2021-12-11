@@ -75,6 +75,8 @@ class Transaction:
             txs: List[Transaction] = await Database.instance.get_transactions_by_contains(tx_input.tx_hash)
 
             for related_tx in txs:
+                if related_tx == self:
+                    continue
                 for related_input in related_tx.inputs:
                     if related_input.tx_hash == tx_input.tx_hash and related_input.index == tx_input.index:
                         print('double spend')
