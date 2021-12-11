@@ -345,7 +345,7 @@ async def transaction_to_json(tx: Union[Transaction, CoinbaseTransaction], verif
             transaction['inputs'].append({
                 'index': input.index,
                 'tx_hash': input.tx_hash,
-                'signature': input.get_signature() if verify else None,
+                'signature': input.get_signature() if input.signed is not None else None,
                 'address': (await input.get_related_output()).address if verify else None,
                 'amount': input.amount,
                 'transaction': related_transaction
