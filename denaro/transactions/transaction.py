@@ -2,11 +2,12 @@ from decimal import Decimal
 from io import BytesIO
 from typing import List
 
+from fastecdsa import keys
 from icecream import ic
 
 from . import TransactionInput, TransactionOutput
 from ..exceptions import DoubleSpendException
-from ..constants import ENDIAN, SMALLEST, VERSION, MAX_TX_HEX_LENGTH
+from ..constants import ENDIAN, SMALLEST, VERSION, MAX_TX_HEX_LENGTH, CURVE
 from ..helpers import bytes_to_point, point_to_string
 
 print = ic
@@ -91,7 +92,13 @@ class Transaction:
             assert self.fees >= 0
         return input_amount >= output_amount
 
-    def sign(self):
+    def sign(self, private_keys: list = []):
+        for private_key in private_keys:
+            for input in self.inputs:
+                if input.private_key is None and input.transaction is not None:
+                    public_key = keys.get_public_key(private_key, CURVE)
+                    if public_key == input.transaction.outputs[input.index].public_key:
+                        input.private_key = private_key
         for input in self.inputs:
             if input.signed is None and input.private_key is not None:
                 input.sign(self.hex(False))
