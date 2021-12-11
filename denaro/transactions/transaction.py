@@ -134,9 +134,6 @@ class Transaction:
             from . import CoinbaseTransaction
             return CoinbaseTransaction(inputs[0].tx_hash, outputs[0].address, outputs[0].amount)
         else:
-            if not check_signatures:
-                return Transaction(inputs, outputs)
-
             assert specifier == 0
 
             signatures = []
@@ -154,6 +151,8 @@ class Transaction:
                 for i, tx_input in enumerate(inputs):
                     tx_input.signed = signatures[i]
             else:
+                if not check_signatures:
+                    return Transaction(inputs, outputs)
                 index = {}
                 for tx_input in inputs:
                     public_key = point_to_string(await tx_input.get_public_key())
