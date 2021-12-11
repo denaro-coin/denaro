@@ -146,10 +146,20 @@ async def clear_pending_transactions():
             used_inputs += tx_inputs
 
 
-def get_transactions_merkle_tree(transactions: List[Union[Transaction, str]]):
+def get_transactions_merkle_tree_ordered(transactions: List[Union[Transaction, str]]):
     _bytes = bytes()
     for transaction in transactions:
         _bytes += hashlib.sha256(bytes.fromhex(transaction.hex() if isinstance(transaction, Transaction) else transaction)).digest()
+    return hashlib.sha256(_bytes).hexdigest()
+
+
+def get_transactions_merkle_tree(transactions: List[Union[Transaction, str]]):
+    _bytes = bytes()
+    transactions_bytes = []
+    for transaction in transactions:
+        transactions_bytes.append(bytes.fromhex(transaction.hex() if isinstance(transaction, Transaction) else transaction))
+    for transaction in sorted(transactions_bytes):
+        _bytes += hashlib.sha256(transaction).digest()
     return hashlib.sha256(_bytes).hexdigest()
 
 
@@ -227,14 +237,16 @@ async def create_block(block_content: str, transactions: List[Transaction]):
                 used_inputs += tx_inputs
             fees += transaction.fees
 
-    if merkle_tree != get_transactions_merkle_tree(transactions):
+    block_no = last_block['id'] + 1
+
+    transactions_merkle_tree = get_transactions_merkle_tree(transactions) if block_no >= 22500 else get_transactions_merkle_tree_ordered(transactions)
+    if merkle_tree != transactions_merkle_tree:
         _print('merkle tree does not match')
         print(transactions)
         print(merkle_tree)
         print(get_transactions_merkle_tree(transactions))
         return False
 
-    block_no = await database.get_next_block_id()
     block_reward = get_block_reward(block_no)
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
 
