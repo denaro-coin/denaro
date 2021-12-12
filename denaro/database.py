@@ -190,6 +190,7 @@ class Database:
                     if point_to_string(tx_output.public_key) == address and i not in used_outputs:
                         tx_input = TransactionInput(tx_hash, i)
                         tx_input.amount = tx_output.amount
+                        tx_input.transaction = tx
                         index[tx_hash + str(i)] = tx_input
                         inputs.append(tx_input)
 
