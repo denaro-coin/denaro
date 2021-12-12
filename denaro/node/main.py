@@ -368,7 +368,7 @@ async def get_transaction(tx_hash: str, verify: bool = False):
 
 
 @app.get("/get_block")
-async def get_block(block: str):
+async def get_block(block: str, full_transactions: bool = False):
     if block.isdecimal():
         block_info = await db.get_block_by_id(int(block))
         if block_info is not None:
@@ -384,7 +384,8 @@ async def get_block(block: str):
         txs = await db.get_block_transactions(block_hash)
         return {'ok': True, 'result': {
             'block': block_info,
-            'transactions': [tx.hex() for tx in txs]
+            'transactions': [tx.hex() for tx in txs],
+            'full_transactions': [await transaction_to_json(tx) for tx in txs] if full_transactions else None
         }}
     else:
         return {'ok': False, 'error': 'Not found block'}
