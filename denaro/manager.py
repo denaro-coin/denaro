@@ -237,7 +237,7 @@ async def create_block(block_content: str, transactions: List[Transaction]):
                 used_inputs += tx_inputs
             fees += transaction.fees
 
-    block_no = last_block['id'] + 1
+    block_no = last_block['id'] + 1 if last_block != {} else 1
 
     transactions_merkle_tree = get_transactions_merkle_tree(transactions) if block_no >= 22500 else get_transactions_merkle_tree_ordered(transactions)
     if merkle_tree != transactions_merkle_tree:
