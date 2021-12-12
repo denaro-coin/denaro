@@ -155,7 +155,7 @@ class Database:
             block = dict(block)
             block['timestamp'] = int(block['timestamp'].timestamp())
             txs = []
-            for transaction in transactions:
+            for transaction in transactions.copy():
                 if transaction['block_hash'] == block['hash']:
                     transactions.remove(transaction)
                     txs.append(transaction['tx_hex'])
