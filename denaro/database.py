@@ -57,7 +57,11 @@ class Database:
         async with self.pool.acquire() as connection:
             await connection.fetch('DELETE FROM pending_transactions WHERE tx_hash = $1', tx_hash)
 
-    async def remove_pending_transactions(self,):
+    async def remove_pending_transactions_by_hash(self, tx_hashes: List[str]):
+        async with self.pool.acquire() as connection:
+            await connection.fetch('DELETE FROM pending_transactions WHERE tx_hash = ANY($1)', tx_hashes)
+
+    async def remove_pending_transactions(self):
         async with self.pool.acquire() as connection:
             await connection.execute('DELETE FROM pending_transactions')
 
