@@ -213,18 +213,14 @@ async def create_block(block_content: str, transactions: List[Transaction]):
         return False
 
     database: Database = Database.instance
-    transactions = transactions[:1000]
+    if len(transactions) > 1000:
+        print('more than 1000 transactions')
+        return False
+    transactions = [tx for tx in transactions if isinstance(tx, Transaction)]
 
     fees = 0
     used_inputs = []
-    found_coinbase = False
     for transaction in transactions:
-        if isinstance(transaction, CoinbaseTransaction):
-            if found_coinbase:
-                raise Exception('2 or more coinbase transactions found in block')
-            transactions.remove(transaction)
-            found_coinbase = True
-            continue
         if not await transaction.verify():
             print('transaction has been not verified')
             return False
@@ -251,7 +247,7 @@ async def create_block(block_content: str, transactions: List[Transaction]):
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
 
     try:
-        await database.add_block((last_block['id'] if last_block != {} else 0) + 1, block_hash, address, random, difficulty, block_reward + fees, datetime.fromtimestamp(content_time))
+        await database.add_block(block_no, block_hash, address, random, difficulty, block_reward + fees, datetime.fromtimestamp(content_time))
     except Exception as e:
         print(e)
         raise
@@ -260,21 +256,13 @@ async def create_block(block_content: str, transactions: List[Transaction]):
     if await coinbase_transaction.verify():
         await database.add_transaction(coinbase_transaction, block_hash)
 
-    tx_count = 0
-    added_transactions = []
     for transaction in transactions:
-        await database.remove_pending_transaction(sha256(transaction.hex()))
-        if await transaction.verify():
-            tx_count += 1
-            await database.add_transaction(transaction, block_hash)
-            added_transactions.append(transaction)
-        else:
-            await database.delete_block(block_no)
-            return False
+        await database.add_transaction(transaction, block_hash)
+    await database.remove_pending_transactions_by_hash([sha256(transaction.hex()) for transaction in transactions])
 
-    print(f'Added {tx_count} transactions in block (+ coinbase). Reward: {block_reward}, Fees: {fees}')
+    print(f'Added {len(transactions)} transactions in block (+ coinbase). Reward: {block_reward}, Fees: {fees}')
     Manager.difficulty = None
-    return added_transactions
+    return transactions
 
 
 class Manager:
