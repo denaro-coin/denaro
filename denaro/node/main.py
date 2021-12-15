@@ -13,7 +13,7 @@ from starlette.responses import JSONResponse
 
 from denaro.helpers import timestamp, sha256
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, check_block_is_valid, \
-    split_block_content, calculate_difficulty, clear_pending_transactions, block_to_bytes
+    split_block_content, calculate_difficulty, clear_pending_transactions, block_to_bytes, get_transactions_merkle_tree_ordered
 from denaro.node.nodes_manager import NodesManager
 from denaro.transactions import Transaction, CoinbaseTransaction
 from denaro import Database
@@ -114,13 +114,17 @@ async def sync_blockchain(node_url: str = None):
         for block_info in blocks:
             block = block_info['block']
             txs_hex = block_info['transactions']
-            txs = [await Transaction.from_hex(tx) for tx in txs_hex]
+            txs = merkle_tree_txs = [await Transaction.from_hex(tx) for tx in txs_hex]
             try:
-                block['merkle_tree'] = get_transactions_merkle_tree(txs_hex[1:])
+                for tx in txs:
+                    if isinstance(tx, CoinbaseTransaction):
+                        txs.remove(tx)
+                        break
+                block['merkle_tree'] = get_transactions_merkle_tree(txs) if i > 22500 else get_transactions_merkle_tree_ordered(txs)
                 block_content = block_to_bytes(last_block_hash, block)
 
-                # this is a weird bug: it seems that some transactions are not included in get_blocks for some reasons
-                if sha256(block_content) != block['hash']:
+                # this will be removed
+                if len(merkle_tree_txs) > 0 and sha256(block_content) != block['hash']:
                     txs = requests.get(f'{node_url}/get_block', {'block': i}, timeout=10).json()['result']['transactions']
                     merkle_tree_txs = txs = [await Transaction.from_hex(tx) for tx in txs]
                     for tx in merkle_tree_txs:
@@ -129,6 +133,14 @@ async def sync_blockchain(node_url: str = None):
                             break
                     block['merkle_tree'] = get_transactions_merkle_tree(merkle_tree_txs)
                     block_content = block_to_bytes(last_block_hash, block)
+                if i <= 22500:
+                    from itertools import permutations
+                    for l in permutations(merkle_tree_txs):
+                        txs = list(l)
+                        if sha256(block_content) == block['hash']:
+                            break
+                        block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
+                        block_content = block_to_bytes(last_block_hash, block)
                 assert i == block['id']
                 if await create_block(block_content.hex(), txs) == False:
                     return
