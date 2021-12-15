@@ -257,7 +257,11 @@ async def create_block(block_content: str, transactions: List[Transaction]):
         await database.add_transaction(coinbase_transaction, block_hash)
 
     for transaction in transactions:
-        await database.add_transaction(transaction, block_hash)
+        try:
+            await database.add_transaction(transaction, block_hash)
+        except:
+            await database.delete_block(block_no)
+            return False
     await database.remove_pending_transactions_by_hash([sha256(transaction.hex()) for transaction in transactions])
 
     print(f'Added {len(transactions)} transactions in block (+ coinbase). Reward: {block_reward}, Fees: {fees}')
