@@ -69,10 +69,6 @@ class Database:
         async with self.pool.acquire() as connection:
             await connection.execute('TRUNCATE transactions, blocks RESTART IDENTITY')
 
-    async def reindex_blocks(self):
-        async with self.pool.acquire() as connection:
-            await connection.execute(f'ALTER SEQUENCE blocks_id_seq RESTART {await self.get_next_block_id()}')
-
     async def delete_block(self, id: int):
         async with self.pool.acquire() as connection:
             await connection.execute('DELETE FROM blocks WHERE id = $1', id)
@@ -99,10 +95,6 @@ class Database:
             )
 
     async def add_block(self, id: int, block_hash: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, str]):
-        try:
-            await self.reindex_blocks()
-        except asyncpg.exceptions.InsufficientPrivilegeError:
-            pass
         async with self.pool.acquire() as connection:
             stmt = await connection.prepare('INSERT INTO blocks (id, hash, address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)')
             await stmt.fetchval(
