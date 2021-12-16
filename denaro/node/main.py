@@ -277,8 +277,8 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
 
 
 @app.get("/sync_blockchain")
-async def sync():
-    await sync_blockchain()
+async def sync(node_url: str = None):
+    await sync_blockchain(node_url)
 
 
 @app.get("/push_full_block")
