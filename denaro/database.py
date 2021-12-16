@@ -43,7 +43,8 @@ class Database:
 
     async def add_pending_transaction(self, transaction: Transaction):
         tx_hex = transaction.hex()
-        assert await transaction.verify()
+        if not await transaction.verify() or self.get_transaction(sha256(tx_hex), False) is not None:
+            return False
         async with self.pool.acquire() as connection:
             await connection.fetch(
                 'INSERT INTO pending_transactions (tx_hash, tx_hex, inputs_addresses, fees) VALUES ($1, $2, $3, $4)',

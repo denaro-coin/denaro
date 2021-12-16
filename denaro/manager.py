@@ -136,12 +136,13 @@ async def clear_pending_transactions():
 
     used_inputs = []
     for transaction in transactions:
-        if not await transaction.verify():
-            await database.remove_pending_transaction(sha256(transaction.hex()))
+        tx_hash = sha256(transaction.hex())
+        if not await transaction.verify() or await database.get_transaction(tx_hash, False) is not None:
+            await database.remove_pending_transaction(tx_hash)
         else:
             tx_inputs = [f"{tx_input.tx_hash}{tx_input.index}" for tx_input in transaction.inputs]
             if any(used_input in tx_inputs for used_input in used_inputs):
-                await database.remove_pending_transaction(sha256(transaction.hex()))
+                await database.remove_pending_transaction(tx_hash)
                 return await clear_pending_transactions()
             used_inputs += tx_inputs
 
