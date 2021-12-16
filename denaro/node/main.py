@@ -101,7 +101,7 @@ async def sync_blockchain(node_url: str = None):
             res = r.json()
         except Exception as e:
             print(e)
-            NodesManager.get_nodes().remove(node_url)
+            #NodesManager.get_nodes().remove(node_url)
             NodesManager.sync()
             break
         if 'ok' not in res or not res['ok']:
