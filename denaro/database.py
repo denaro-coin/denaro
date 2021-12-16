@@ -43,7 +43,7 @@ class Database:
 
     async def add_pending_transaction(self, transaction: Transaction):
         tx_hex = transaction.hex()
-        if not await transaction.verify() or self.get_transaction(sha256(tx_hex), False) is not None:
+        if not await transaction.verify() or await self.get_transaction(sha256(tx_hex), False) is not None:
             return False
         async with self.pool.acquire() as connection:
             await connection.fetch(
