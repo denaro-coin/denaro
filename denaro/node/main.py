@@ -74,7 +74,11 @@ def propagate(path: str, args: dict, ignore=None):
         ):
             continue
         try:
-            requests.get(f'{node_url}/{path}', args, timeout=5, headers={'Sender-Node': self_url})
+            if path == 'push_block':
+                r = requests.post(f'{node_url}/{path}', json=args, timeout=20, headers={'Sender-Node': self_url})
+            else:
+                r = requests.get(f'{node_url}/{path}', args, timeout=5, headers={'Sender-Node': self_url})
+            print('node response: ', r.json())
         except Exception as e:
             print(e)
             if not isinstance(e, ReadTimeout):
