@@ -291,9 +291,9 @@ async def get_mining_info(background_tasks: BackgroundTasks):
     difficulty, last_block = await get_difficulty()
     last_block = last_block.copy()
     last_block['timestamp'] = int(last_block['timestamp'].timestamp())
-    if random.randint(0, 10) == 0:
-        background_tasks.add_task(clear_pending_transactions)
     pending_transactions = await db.get_pending_transactions_limit(1000, True)
+    if random.randint(0, 10 + len(pending_transactions)) == 0:
+        background_tasks.add_task(clear_pending_transactions)
     return {'ok': True, 'result': {
         'difficulty': difficulty,
         'last_block': last_block,
