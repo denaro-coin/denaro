@@ -285,11 +285,6 @@ async def sync(node_url: str = None):
     await sync_blockchain(node_url)
 
 
-@app.get("/push_full_block")
-async def push_full_block(request, block_content: str, txs=[], id: int = None):
-    return await push_block(request, block_content, txs, id)
-
-
 @app.get("/get_mining_info")
 async def get_mining_info(background_tasks: BackgroundTasks):
     Manager.difficulty = None
