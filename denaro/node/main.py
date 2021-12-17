@@ -226,17 +226,15 @@ async def exception_handler(request: Request, e: Exception):
         content={"ok": False, "error": f"Uncaught {type(e).__name__} exception"},
     )
 
+
 @app.get("/push_tx")
 async def push_tx(tx_hex: str, background_tasks: BackgroundTasks):
-    try:
-        tx = await Transaction.from_hex(tx_hex)
-        await db.add_pending_transaction(tx)
+    tx = await Transaction.from_hex(tx_hex)
+    if await db.add_pending_transaction(tx):
         background_tasks.add_task(propagate, 'push_tx', {'tx_hex': tx_hex})
         return {'ok': True, 'result': 'Transaction has been accepted'}
-    except Exception as e:
-        print(e)
-        return {'ok': False, 'error': 'Sent HEX is not valid'}
-
+    else:
+        return {'ok': False, 'error': 'Transaction has not been added'}
 
 @app.post("/push_block")
 @app.get("/push_block")
