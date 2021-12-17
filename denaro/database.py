@@ -43,7 +43,7 @@ class Database:
 
     async def add_pending_transaction(self, transaction: Transaction):
         tx_hex = transaction.hex()
-        if not await transaction.verify() or await self.get_transaction(sha256(tx_hex), False) is not None:
+        if await self.get_transaction(sha256(tx_hex), False) is not None or not await transaction.verify():
             return False
         async with self.pool.acquire() as connection:
             await connection.fetch(
@@ -53,6 +53,7 @@ class Database:
                 [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs],
                 transaction.fees
             )
+        return True
 
     async def remove_pending_transaction(self, tx_hash: str):
         async with self.pool.acquire() as connection:
