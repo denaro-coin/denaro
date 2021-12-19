@@ -141,10 +141,10 @@ async def sync_blockchain(node_url: str = None):
                     from itertools import permutations
                     for l in permutations(merkle_tree_txs):
                         txs = list(l)
-                        if sha256(block_content) == block['hash']:
-                            break
                         block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
                         block_content = block_to_bytes(last_block_hash, block)
+                        if sha256(block_content) == block['hash']:
+                            break
                 assert i == block['id']
                 if await create_block(block_content.hex(), txs) == False:
                     return
