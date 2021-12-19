@@ -190,6 +190,8 @@ async def middleware(request: Request, call_next):
         pass
 
     NodesManager.sync()
+    if 'Sender-Node' in request.headers:
+        NodesManager.add_node(request.headers['Sender-Node'])
 
     if nodes and not started or (ip_is_local(hostname) or hostname == 'localhost'):
         await sync_blockchain()
