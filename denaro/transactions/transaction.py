@@ -69,9 +69,8 @@ class Transaction:
                 print('not signed')
                 return False
             from .. import Database
-            tx: Transaction = await tx_input.get_transaction()
-            input_output = tx.outputs[tx_input.index]
-            input_amount += input_output.amount
+            related_output = await tx_input.get_related_output()
+            input_amount += related_output.amount
             txs: List[Transaction] = await Database.instance.get_transactions_by_contains(tx_input.tx_hash)
 
             for related_tx in txs:
