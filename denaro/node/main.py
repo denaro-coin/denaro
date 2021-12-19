@@ -179,15 +179,6 @@ async def middleware(request: Request, call_next):
     global started, self_url
     nodes = NodesManager.get_nodes()
     hostname = request.base_url.hostname
-    self_url = str(request.base_url).strip('/')
-    try:
-        nodes.remove(self_url)
-    except ValueError:
-        pass
-    try:
-        nodes.remove(self_url.replace("http://", "https://"))
-    except ValueError:
-        pass
 
     NodesManager.sync()
     if 'Sender-Node' in request.headers:
@@ -207,6 +198,16 @@ async def middleware(request: Request, call_next):
 
         if not (ip_is_local(hostname) or hostname == 'localhost'):
             started = True
+
+            self_url = str(request.base_url).strip('/')
+            try:
+                nodes.remove(self_url)
+            except ValueError:
+                pass
+            try:
+                nodes.remove(self_url.replace("http://", "https://"))
+            except ValueError:
+                pass
 
             try:
                 propagate('add_node', {'url': self_url})
