@@ -180,7 +180,6 @@ async def middleware(request: Request, call_next):
     nodes = NodesManager.get_nodes()
     hostname = request.base_url.hostname
 
-    NodesManager.sync()
     if 'Sender-Node' in request.headers:
         NodesManager.add_node(request.headers['Sender-Node'])
 
@@ -208,6 +207,8 @@ async def middleware(request: Request, call_next):
                 nodes.remove(self_url.replace("http://", "https://"))
             except ValueError:
                 pass
+
+            NodesManager.sync()
 
             try:
                 propagate('add_node', {'url': self_url})
@@ -238,6 +239,7 @@ async def push_tx(tx_hex: str, background_tasks: BackgroundTasks):
         return {'ok': True, 'result': 'Transaction has been accepted'}
     else:
         return {'ok': False, 'error': 'Transaction has not been added'}
+
 
 @app.post("/push_block")
 @app.get("/push_block")
