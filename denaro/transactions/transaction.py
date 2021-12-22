@@ -7,8 +7,8 @@ from icecream import ic
 
 from . import TransactionInput, TransactionOutput
 from ..exceptions import DoubleSpendException
-from ..constants import ENDIAN, SMALLEST, VERSION, MAX_TX_HEX_LENGTH, CURVE
-from ..helpers import bytes_to_point, point_to_string
+from ..constants import ENDIAN, SMALLEST, MAX_TX_HEX_LENGTH, CURVE
+from ..helpers import point_to_string, bytes_to_string
 
 print = ic
 
@@ -28,8 +28,15 @@ class Transaction:
         hex_inputs = ''.join(tx_input.tobytes().hex() for tx_input in inputs)
         hex_outputs = ''.join(tx_output.tobytes().hex() for tx_output in outputs)
 
+        if all(len(tx_output.address_bytes) == 64 for tx_output in outputs):
+            version = 1
+        elif all(len(tx_output.address_bytes) == 33 for tx_output in outputs):
+            version = 2
+        else:
+            raise NotImplementedError()
+
         self._hex = ''.join([
-            VERSION.to_bytes(1, ENDIAN).hex(),
+            version.to_bytes(1, ENDIAN).hex(),
             len(inputs).to_bytes(1, ENDIAN).hex(),
             hex_inputs,
             (len(outputs)).to_bytes(1, ENDIAN).hex(),
@@ -109,6 +116,8 @@ class Transaction:
     async def from_hex(hexstring: str, check_signatures: bool = True):
         tx_bytes = BytesIO(bytes.fromhex(hexstring))
         version = int.from_bytes(tx_bytes.read(1), ENDIAN)
+        if version > 2:
+            raise NotImplementedError()
 
         inputs_count = int.from_bytes(tx_bytes.read(1), ENDIAN)
 
@@ -124,10 +133,10 @@ class Transaction:
         outputs = []
 
         for i in range(0, outputs_count):
-            pubkey = tx_bytes.read(64)
+            pubkey = tx_bytes.read(64 if version == 1 else 33)
             amount_length = int.from_bytes(tx_bytes.read(1), ENDIAN)
             amount = int.from_bytes(tx_bytes.read(amount_length), ENDIAN) / Decimal(SMALLEST)
-            outputs.append(TransactionOutput(bytes_to_point(pubkey), amount))
+            outputs.append(TransactionOutput(bytes_to_string(pubkey), amount))
 
         specifier = int.from_bytes(tx_bytes.read(1), ENDIAN)
         if specifier == 36:

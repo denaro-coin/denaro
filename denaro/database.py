@@ -6,7 +6,7 @@ from typing import List, Union
 import asyncpg
 from asyncpg import Connection, Record, Pool
 
-from .helpers import sha256, point_to_string, string_to_point, point_to_bytes
+from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat
 from .transactions import Transaction, CoinbaseTransaction, TransactionInput
 
 
@@ -172,11 +172,14 @@ class Database:
         return [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs] if txs is not None else None
 
     async def get_spendable_outputs(self, address: str, check_pending_txs: bool = False) -> List[TransactionInput]:
+        point = string_to_point(address)
+        search = ['%'+point_to_bytes(string_to_point(address), address_format).hex()+'%' for address_format in list(AddressFormat)]
+        addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE tx_hex LIKE $1', f"%{point_to_bytes(string_to_point(address)).hex()}%")
-            spender_txs = await connection.fetch("SELECT tx_hex FROM transactions WHERE $1 = ANY(inputs_addresses)", point_to_bytes(string_to_point(address)).hex())
+            txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE tx_hex LIKE ANY($1)', search)
+            spender_txs = await connection.fetch("SELECT tx_hex FROM transactions WHERE $1 && inputs_addresses", addresses)
             if check_pending_txs:
-                spender_txs += await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 = ANY(inputs_addresses)", point_to_bytes(string_to_point(address)).hex())
+                spender_txs += await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses)
         inputs = []
         index = {}
         for tx in txs:
@@ -184,21 +187,18 @@ class Database:
             tx_hash = sha256(tx['tx_hex'])
             tx = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
             for i, tx_output in enumerate(tx.outputs):
-                if point_to_string(tx_output.public_key) == address and i not in used_outputs:
+                if tx_output.address in addresses and i not in used_outputs:
                     tx_input = TransactionInput(tx_hash, i)
                     tx_input.amount = tx_output.amount
                     tx_input.transaction = tx
                     index[tx_hash + str(i)] = tx_input
                     inputs.append(tx_input)
-
+        used_outputs = []
         for spender_tx in spender_txs:
             spender_tx = await Transaction.from_hex(spender_tx['tx_hex'], check_signatures=False)
-            is_spender = False
             for tx_input in spender_tx.inputs:
                 if tx_input.tx_hash + str(tx_input.index) in index:
                     used_outputs.append(tx_input.tx_hash + str(tx_input.index))
-            if is_spender:
-                continue
 
         final = []
         for tx_input in inputs:
@@ -209,15 +209,17 @@ class Database:
 
     async def get_address_balance(self, address: str, check_pending_txs: bool = False) -> Decimal:
         balance = Decimal(0)
+        point = string_to_point(address)
+        search = ['%'+point_to_bytes(string_to_point(address), address_format).hex()+'%' for address_format in list(AddressFormat)]
+        addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
         for input in await self.get_spendable_outputs(address, check_pending_txs=check_pending_txs):
             balance += input.amount
         if check_pending_txs:
             async with self.pool.acquire() as connection:
-                txs = await connection.fetch('SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE $1',
-                                             f"%{point_to_bytes(string_to_point(address)).hex()}%")
+                txs = await connection.fetch('SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1)', search)
             for tx in txs:
                 tx = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
                 for i, tx_output in enumerate(tx.outputs):
-                    if point_to_string(tx_output.public_key) == address:
+                    if tx_output.address in addresses:
                         balance += tx_output.amount
         return balance

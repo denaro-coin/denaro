@@ -1,22 +1,24 @@
 from decimal import Decimal
 
-from fastecdsa.point import Point
-
 from ..constants import ENDIAN, SMALLEST, CURVE
-from ..helpers import byte_length, point_to_bytes, point_to_string
+from ..helpers import byte_length, string_to_point, string_to_bytes
 
 
 class TransactionOutput:
-    def __init__(self, public_key: Point, amount: Decimal):
-        self.public_key = public_key
-        self.address = point_to_string(public_key)
+    def __init__(self, address: str, amount: Decimal):
+        from fastecdsa.point import Point
+        if isinstance(address, Point):
+            raise Exception('TransactionOutput does not accept Point anymore. Pass the address string instead')
+        self.address = address
+        self.address_bytes = string_to_bytes(address)
+        self.public_key = string_to_point(address)
         assert (amount * SMALLEST) % 1 == 0.0
         self.amount = amount
 
     def tobytes(self):
         amount = int(self.amount * SMALLEST)
         count = byte_length(amount)
-        return point_to_bytes(self.public_key) + count.to_bytes(1, ENDIAN) + amount.to_bytes(count, ENDIAN)
+        return self.address_bytes + count.to_bytes(1, ENDIAN) + amount.to_bytes(count, ENDIAN)
 
     def verify(self):
         return self.amount > 0 and CURVE.is_point_on_curve((self.public_key.x, self.public_key.y))

@@ -1,7 +1,6 @@
 from decimal import Decimal
 
-from ..constants import ENDIAN, VERSION
-from ..helpers import string_to_point
+from ..constants import ENDIAN
 from ..transactions import TransactionOutput
 
 
@@ -12,7 +11,7 @@ class CoinbaseTransaction:
         self.block_hash = block_hash
         self.address = address
         self.amount = amount
-        self.outputs = [TransactionOutput(string_to_point(address), amount)]
+        self.outputs = [TransactionOutput(address, amount)]
 
     async def verify(self):
         from .. import Database
@@ -26,7 +25,7 @@ class CoinbaseTransaction:
         hex_outputs = ''.join(tx_output.tobytes().hex() for tx_output in self.outputs)
 
         self._hex = ''.join([
-            VERSION.to_bytes(1, ENDIAN).hex(),
+            (1).to_bytes(1, ENDIAN).hex(),
             (1).to_bytes(1, ENDIAN).hex(),
             hex_inputs,
             (1).to_bytes(1, ENDIAN).hex(),
