@@ -99,7 +99,8 @@ def point_to_string(point: Point, address_format: AddressFormat = AddressFormat.
         return point_bytes.hex()
     elif address_format is AddressFormat.COMPRESSED:
         x, y = point.x, point.y
-        return base58.b58encode((42 if y % 2 == 0 else 43).to_bytes(1, ENDIAN) + x.to_bytes(32, ENDIAN))
+        address = base58.b58encode((42 if y % 2 == 0 else 43).to_bytes(1, ENDIAN) + x.to_bytes(32, ENDIAN))
+        return address if isinstance(address, str) else address.decode('utf-8')
     else:
         raise NotImplementedError()
 
