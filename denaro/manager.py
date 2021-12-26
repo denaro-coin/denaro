@@ -205,7 +205,7 @@ async def create_block(block_content: str, transactions: List[Transaction]):
     block_hash = sha256(block_content)
     previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
     content_time = int(content_time)
-    if last_block != {} and (len(block_content) > 138 * 2 or previous_hash != last_block['hash']):
+    if last_block != {} and previous_hash != last_block['hash']:
         return False
 
     if content_difficulty != difficulty:
