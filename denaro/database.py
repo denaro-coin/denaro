@@ -168,7 +168,10 @@ class Database:
 
     async def get_block_by_id(self, block_id: int) -> Record:
         async with self.pool.acquire() as connection:
-            return await connection.fetchrow('SELECT * FROM blocks WHERE id = $1', block_id)
+            block = await connection.fetchrow('SELECT * FROM blocks WHERE id = $1', block_id)
+            block = dict(block)
+            block['address'] = block['address'].strip(' ')
+            return block
 
     async def get_block_transactions(self, block_hash: str, check_signatures: bool = True) -> List[Union[Transaction, CoinbaseTransaction]]:
         async with self.pool.acquire() as connection:
