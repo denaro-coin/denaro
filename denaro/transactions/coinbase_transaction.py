@@ -24,8 +24,15 @@ class CoinbaseTransaction:
         hex_inputs = (bytes.fromhex(self.block_hash) + (0).to_bytes(1, ENDIAN)).hex()
         hex_outputs = ''.join(tx_output.tobytes().hex() for tx_output in self.outputs)
 
+        if all(len(tx_output.address_bytes) == 64 for tx_output in self.outputs):
+            version = 1
+        elif all(len(tx_output.address_bytes) == 33 for tx_output in self.outputs):
+            version = 2
+        else:
+            raise NotImplementedError()
+
         self._hex = ''.join([
-            (1).to_bytes(1, ENDIAN).hex(),
+            version.to_bytes(1, ENDIAN).hex(),
             (1).to_bytes(1, ENDIAN).hex(),
             hex_inputs,
             (1).to_bytes(1, ENDIAN).hex(),
