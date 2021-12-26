@@ -256,27 +256,26 @@ async def create_block(block_content: str, transactions: List[Transaction]):
     block_reward = get_block_reward(block_no)
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
 
-    try:
-        await database.add_block(block_no, block_hash, address, random, difficulty, block_reward + fees, datetime.fromtimestamp(content_time))
-    except Exception as e:
-        print(e)
-        raise
-        return False
+    await database.add_block(block_no, block_hash, address, random, difficulty, block_reward + fees, datetime.fromtimestamp(content_time))
 
-    if await coinbase_transaction.verify():
-        await database.add_transaction(coinbase_transaction, block_hash)
+    if not await coinbase_transaction.verify():
+        print('coinbase transaction not verified')
+        await database.delete_block(block_no)
+        return False
+    await database.add_transaction(coinbase_transaction, block_hash)
 
     for transaction in transactions:
         try:
             await database.add_transaction(transaction, block_hash)
-        except:
+        except Exception as e:
+            print(f'transaction {sha256(transaction.hex())} has not been added in block', e)
             await database.delete_block(block_no)
             return False
     await database.remove_pending_transactions_by_hash([sha256(transaction.hex()) for transaction in transactions])
 
     print(f'Added {len(transactions)} transactions in block (+ coinbase). Reward: {block_reward}, Fees: {fees}')
     Manager.difficulty = None
-    return transactions
+    return True
 
 
 class Manager:
