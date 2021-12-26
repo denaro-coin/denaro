@@ -9,7 +9,7 @@ from icecream import ic
 
 from . import Database
 from .constants import MAX_SUPPLY, ENDIAN
-from .helpers import sha256, timestamp
+from .helpers import sha256, timestamp, bytes_to_string, string_to_bytes
 from .transactions import CoinbaseTransaction, Transaction
 
 BLOCK_TIME = 180
@@ -166,7 +166,7 @@ def get_transactions_merkle_tree(transactions: List[Union[Transaction, str]]):
 
 def block_to_bytes(last_block_hash: str, block: dict) -> bytes:
     return bytes.fromhex(last_block_hash) + \
-           bytes.fromhex(block['address']) + \
+           string_to_bytes(block['address']) + \
            bytes.fromhex(block['merkle_tree']) + \
            block['timestamp'].to_bytes(4, byteorder=ENDIAN) + \
            int(block['difficulty'] * 10).to_bytes(2, ENDIAN) \
@@ -174,15 +174,24 @@ def block_to_bytes(last_block_hash: str, block: dict) -> bytes:
 
 
 def split_block_content(block_content: str):
-    _bytes = BytesIO(bytes.fromhex(block_content))
-    previous_hash = _bytes.read(32).hex()
-    public_key = _bytes.read(64).hex()
-    merkle_tree = _bytes.read(32).hex()
-    timestamp = int.from_bytes(_bytes.read(4), ENDIAN)
-    difficulty = int.from_bytes(_bytes.read(2), ENDIAN) / Decimal(10)
-    random = int.from_bytes(_bytes.read(4), ENDIAN)
-
-    return previous_hash, public_key, merkle_tree, timestamp, difficulty, random
+    _bytes = bytes.fromhex(block_content)
+    stream = BytesIO(_bytes)
+    if len(_bytes) == 138:
+        version = 1
+    else:
+        version = int.from_bytes(stream.read(1), ENDIAN)
+        assert version > 1
+        if version == 2:
+            assert len(_bytes) == 108
+        else:
+            raise NotImplementedError()
+    previous_hash = stream.read(32).hex()
+    address = bytes_to_string(stream.read(64 if version == 1 else 33))
+    merkle_tree = stream.read(32).hex()
+    timestamp = int.from_bytes(stream.read(4), ENDIAN)
+    difficulty = int.from_bytes(stream.read(2), ENDIAN) / Decimal(10)
+    random = int.from_bytes(stream.read(4), ENDIAN)
+    return previous_hash, address, merkle_tree, timestamp, difficulty, random
 
 
 async def create_block(block_content: str, transactions: List[Transaction]):
