@@ -86,7 +86,7 @@ def propagate(path: str, args: dict, ignore=None):
             NodesManager.sync()
 
 
-async def sync_blockchain(node_url: str = None):
+async def _sync_blockchain(node_url: str = None):
     print('sync blockchain')
     i = await db.get_next_block_id()
     if node_url is None:
@@ -119,41 +119,37 @@ async def sync_blockchain(node_url: str = None):
             block = block_info['block']
             txs_hex = block_info['transactions']
             txs = merkle_tree_txs = [await Transaction.from_hex(tx) for tx in txs_hex]
-            try:
-                for tx in txs:
-                    if isinstance(tx, CoinbaseTransaction):
-                        txs.remove(tx)
-                        break
-                block['merkle_tree'] = get_transactions_merkle_tree(txs) if i > 22500 else get_transactions_merkle_tree_ordered(txs)
-                block_content = block_to_bytes(last_block_hash, block)
+            for tx in txs:
+                if isinstance(tx, CoinbaseTransaction):
+                    txs.remove(tx)
+                    break
+            block['merkle_tree'] = get_transactions_merkle_tree(txs) if i > 22500 else get_transactions_merkle_tree_ordered(txs)
+            block_content = block_to_bytes(last_block_hash, block)
+            if len(block['address']) != 128:
+                block_content = bytes([2]) + block_content
 
-                # this will be removed
-                if len(merkle_tree_txs) > 0 and sha256(block_content) != block['hash']:
-                    txs = requests.get(f'{node_url}/get_block', {'block': i}, timeout=10).json()['result']['transactions']
-                    merkle_tree_txs = txs = [await Transaction.from_hex(tx) for tx in txs]
-                    for tx in merkle_tree_txs:
-                        if isinstance(tx, CoinbaseTransaction):
-                            merkle_tree_txs.remove(tx)
-                            break
-                    block['merkle_tree'] = get_transactions_merkle_tree(merkle_tree_txs)
+            if i <= 22500:
+                from itertools import permutations
+                for l in permutations(merkle_tree_txs):
+                    txs = list(l)
+                    block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
                     block_content = block_to_bytes(last_block_hash, block)
-                if i <= 22500:
-                    from itertools import permutations
-                    for l in permutations(merkle_tree_txs):
-                        txs = list(l)
-                        block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
-                        block_content = block_to_bytes(last_block_hash, block)
-                        if sha256(block_content) == block['hash']:
-                            break
-                assert i == block['id']
-                if await create_block(block_content.hex(), txs) == False:
-                    return
-                last_block_hash = block['hash']
-            except:
-                raise
-                break
+                    if sha256(block_content) == block['hash']:
+                        break
+            assert i == block['id']
+            if not await create_block(block_content.hex(), txs):
+                return
+            last_block_hash = block['hash']
             i += 1
         Manager.difficulty = None
+
+
+async def sync_blockchain(node_url: str = None):
+    try:
+        return await _sync_blockchain(node_url)
+    except Exception as e:
+        print(e)
+        pass
 
 
 @app.on_event("startup")
