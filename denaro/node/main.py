@@ -307,15 +307,13 @@ async def get_mining_info(background_tasks: BackgroundTasks):
 
 @app.get("/get_address_info")
 async def get_address_info(address: str):
-    try:
-        balance = await db.get_address_balance(address)
-        outputs = await db.get_spendable_outputs(address)
-        return {'ok': True, 'result': {
-            'balance': balance,
-            'spendable_txs': [{'amount': output.amount, 'tx_hex': output.tx_hash, 'index': output.index} for output in outputs]
-        }}
-    except Exception as e:
-        return {'ok': False, 'error': 'Not valid address'}
+    outputs = await db.get_spendable_outputs(address)
+    balance = sum(output.amount for output in outputs)
+    return {'ok': True, 'result': {
+        'balance': balance,
+        'spendable_outputs': [{'amount': output.amount, 'tx_hash': output.tx_hash, 'index': output.index} for output in
+                              outputs]
+    }}
 
 
 @app.get("/add_node")
