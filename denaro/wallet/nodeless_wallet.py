@@ -22,8 +22,8 @@ def get_address_info(address: str):
     request = requests.get(f'{node_url}/get_address_info', {'address': address})
     result = request.json()['result']
     tx_inputs = []
-    for spendable_tx_input in result['spendable_txs']:
-        tx_input = TransactionInput(spendable_tx_input['tx_hex'], spendable_tx_input['index'])
+    for spendable_tx_input in result['spendable_outputs']:
+        tx_input = TransactionInput(spendable_tx_input['tx_hash'], spendable_tx_input['index'])
         tx_input.amount = spendable_tx_input['amount']
         tx_input.public_key = string_to_point(address)
         tx_inputs.append(tx_input)
