@@ -139,9 +139,12 @@ class Database:
         last_id = last_id if last_id is not None else 0
         return last_id + 1
 
-    async def get_block(self, block_hash: str) -> Record:
+    async def get_block(self, block_hash: str) -> dict:
         async with self.pool.acquire() as connection:
-            return await connection.fetchrow('SELECT * FROM blocks WHERE hash = $1', block_hash)
+            block = await connection.fetchrow('SELECT * FROM blocks WHERE hash = $1', block_hash)
+            block = dict(block)
+            block['address'] = block['address'].strip(' ')
+            return block
 
     async def get_blocks(self, offset: int, limit: int) -> list:
         async with self.pool.acquire() as connection:
@@ -150,6 +153,7 @@ class Database:
         result = []
         for block in blocks:
             block = dict(block)
+            block['address'] = block['address'].strip(' ')
             block['timestamp'] = int(block['timestamp'].timestamp())
             txs = []
             for transaction in transactions.copy():
