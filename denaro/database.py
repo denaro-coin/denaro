@@ -75,6 +75,10 @@ class Database:
         async with self.pool.acquire() as connection:
             await connection.execute('DELETE FROM blocks WHERE id = $1', id)
 
+    async def delete_blocks(self, offset: int):
+        async with self.pool.acquire() as connection:
+            await connection.execute('DELETE FROM blocks WHERE id > $1', offset)
+
     async def get_pending_transactions_limit(self, limit: int = 1000, hex_only: bool = False) -> List[Transaction]:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees DESC LIMIT {limit}')
