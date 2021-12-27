@@ -55,6 +55,7 @@ async def calculate_difficulty() -> Tuple[Decimal, dict]:
     if last_block is None:
         return START_DIFFICULTY, dict()
     last_block = dict(last_block)
+    last_block['address'] = last_block['address'].strip(' ')
     if last_block['id'] < BLOCKS_COUNT:
         return START_DIFFICULTY, last_block
 
@@ -165,8 +166,13 @@ def get_transactions_merkle_tree(transactions: List[Union[Transaction, str]]):
 
 
 def block_to_bytes(last_block_hash: str, block: dict) -> bytes:
-    return bytes.fromhex(last_block_hash) + \
-           string_to_bytes(block['address']) + \
+    address_bytes = string_to_bytes(block['address'])
+    version = bytes([])
+    if len(address_bytes) != 64:
+        version = bytes([2])
+    return version + \
+           bytes.fromhex(last_block_hash) + \
+           address_bytes + \
            bytes.fromhex(block['merkle_tree']) + \
            block['timestamp'].to_bytes(4, byteorder=ENDIAN) + \
            int(block['difficulty'] * 10).to_bytes(2, ENDIAN) \
@@ -194,16 +200,15 @@ def split_block_content(block_content: str):
     return previous_hash, address, merkle_tree, timestamp, difficulty, random
 
 
-async def create_block(block_content: str, transactions: List[Transaction]):
+async def check_block(block_content: str, transactions: List[Transaction]):
     Manager.difficulty = None
+    previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
     if not await check_block_is_valid(block_content):
         print('block not valid')
         return False
 
     difficulty, last_block = await get_difficulty()
 
-    block_hash = sha256(block_content)
-    previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
     content_time = int(content_time)
     if last_block != {} and previous_hash != last_block['hash']:
         return False
@@ -228,7 +233,6 @@ async def create_block(block_content: str, transactions: List[Transaction]):
         return False
     transactions = [tx for tx in transactions if isinstance(tx, Transaction)]
 
-    fees = 0
     used_inputs = []
     for transaction in transactions:
         if not await transaction.verify():
@@ -241,17 +245,33 @@ async def create_block(block_content: str, transactions: List[Transaction]):
                 return False
             else:
                 used_inputs += tx_inputs
-            fees += transaction.fees
 
     block_no = last_block['id'] + 1 if last_block != {} else 1
 
-    transactions_merkle_tree = get_transactions_merkle_tree(transactions) if block_no >= 22500 else get_transactions_merkle_tree_ordered(transactions)
+    transactions_merkle_tree = get_transactions_merkle_tree(
+        transactions) if block_no >= 22500 else get_transactions_merkle_tree_ordered(transactions)
     if merkle_tree != transactions_merkle_tree:
         _print('merkle tree does not match')
         print(transactions)
         print(merkle_tree)
         print(get_transactions_merkle_tree(transactions))
         return False
+
+    return True
+
+
+async def create_block(block_content: str, transactions: List[Transaction]):
+    Manager.difficulty = None
+    if not await check_block(block_content, transactions):
+        return False
+
+    difficulty, last_block = await get_difficulty()
+    database: Database = Database.instance
+    block_hash = sha256(block_content)
+    block_no = last_block['id'] + 1 if last_block != {} else 1
+    previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
+
+    fees = sum(transaction.fees for transaction in transactions)
 
     block_reward = get_block_reward(block_no)
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
