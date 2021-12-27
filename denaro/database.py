@@ -163,7 +163,8 @@ class Database:
             for transaction in transactions.copy():
                 if transaction['block_hash'] == block['hash']:
                     transactions.remove(transaction)
-                    txs.append(transaction['tx_hex'])
+                    if isinstance(await Transaction.from_hex(transaction['tx_hex']), Transaction):
+                        txs.append(transaction['tx_hex'])
             result.append({
                 'block': block,
                 'transactions': txs
