@@ -44,3 +44,18 @@ class NodesManager:
         NodesManager.nodes = list(dict.fromkeys(NodesManager.nodes))
         NodesManager.sync()
         return NodesManager.nodes
+
+
+class NodeInterface:
+    def __init__(self, url: str):
+        self.url = url.strip('/')
+
+    def get_block(self, block_no: int):
+        r = requests.get(f'{self.url}/get_block', {'block': block_no}, timeout=10)
+        res = r.json()
+        return res['result']
+
+    def get_blocks(self, offset: int, limit: int):
+        r = requests.get(f'{self.url}/get_blocks', {'offset': offset, 'limit': limit}, timeout=10)
+        res = r.json()
+        return res['result']
