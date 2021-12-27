@@ -14,7 +14,7 @@ from starlette.responses import JSONResponse
 from denaro.helpers import timestamp, sha256
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, check_block_is_valid, \
     split_block_content, calculate_difficulty, clear_pending_transactions, block_to_bytes, get_transactions_merkle_tree_ordered
-from denaro.node.nodes_manager import NodesManager
+from denaro.node.nodes_manager import NodesManager, NodeInterface
 from denaro.transactions import Transaction, CoinbaseTransaction
 from denaro import Database
 from denaro.constants import VERSION, ENDIAN
@@ -86,9 +86,40 @@ def propagate(path: str, args: dict, ignore=None):
             NodesManager.sync()
 
 
+async def create_blocks(blocks: list):
+    _, last_block = await calculate_difficulty()
+    last_block_hash = last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()
+    i = last_block['id'] + 1
+    for block_info in blocks:
+        block = block_info['block']
+        txs_hex = block_info['transactions']
+        txs = merkle_tree_txs = [await Transaction.from_hex(tx) for tx in txs_hex]
+        for tx in txs:
+            if isinstance(tx, CoinbaseTransaction):
+                txs.remove(tx)
+                break
+        block['merkle_tree'] = get_transactions_merkle_tree(txs) if i > 22500 else get_transactions_merkle_tree_ordered(
+            txs)
+        block_content = block_to_bytes(last_block_hash, block)
+
+        if i <= 22500:
+            from itertools import permutations
+            for l in permutations(merkle_tree_txs):
+                txs = list(l)
+                block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
+                block_content = block_to_bytes(last_block_hash, block)
+                if sha256(block_content) == block['hash']:
+                    break
+        assert i == block['id']
+        if not await create_block(block_content.hex(), txs):
+            return False
+        last_block_hash = block['hash']
+        i += 1
+    return True
+
+
 async def _sync_blockchain(node_url: str = None):
     print('sync blockchain')
-    i = await db.get_next_block_id()
     if node_url is None:
         nodes = NodesManager.get_nodes()
         if not nodes:
@@ -96,52 +127,52 @@ async def _sync_blockchain(node_url: str = None):
         node_url = nodes[0]
     node_url = node_url.strip('/')
     _, last_block = await calculate_difficulty()
-    last_block_hash = last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()
+    i = await db.get_next_block_id()
+    node_interface = NodeInterface(node_url)
+    remote_last_block = node_interface.get_block(i-1)['block']
+    local_cache = None
+    print(remote_last_block['hash'])
+    if remote_last_block['hash'] != last_block['hash']:
+        offset, limit = i - 500, 500
+        remote_blocks = node_interface.get_blocks(i-500, 500)
+        local_blocks = await db.get_blocks(offset, limit)
+        local_blocks.reverse()
+        remote_blocks.reverse()
+        print(len(remote_blocks), len(local_blocks))
+        if len(local_blocks) > len(remote_blocks):
+            return
+        for n, local_block in enumerate(local_blocks):
+            if local_block['block']['hash'] == remote_blocks[n]['block']['hash']:
+                print(local_block, remote_blocks[n])
+                local_cache = local_blocks[:n]
+                local_cache.reverse()
+                last_common_block = i = local_block['block']['id']
+                await db.delete_blocks(last_common_block)
+                print([c['block']['id'] for c in local_cache])
+                break
+
+    #return
     limit = 1000
     while True:
         print(i)
         try:
-            r = requests.get(f'{node_url}/get_blocks', {'offset': i, 'limit': limit}, timeout=10)
-            res = r.json()
+            blocks = node_interface.get_blocks(i, limit)
         except Exception as e:
             print(e)
             #NodesManager.get_nodes().remove(node_url)
             NodesManager.sync()
             break
-        if 'ok' not in res or not res['ok']:
-            print(res)
-            break
-        else:
-            blocks = res['result']
-            if not blocks:
-                return
-        for block_info in blocks:
-            block = block_info['block']
-            txs_hex = block_info['transactions']
-            txs = merkle_tree_txs = [await Transaction.from_hex(tx) for tx in txs_hex]
-            for tx in txs:
-                if isinstance(tx, CoinbaseTransaction):
-                    txs.remove(tx)
-                    break
-            block['merkle_tree'] = get_transactions_merkle_tree(txs) if i > 22500 else get_transactions_merkle_tree_ordered(txs)
-            block_content = block_to_bytes(last_block_hash, block)
-            if len(block['address']) != 128:
-                block_content = bytes([2]) + block_content
-
-            if i <= 22500:
-                from itertools import permutations
-                for l in permutations(merkle_tree_txs):
-                    txs = list(l)
-                    block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
-                    block_content = block_to_bytes(last_block_hash, block)
-                    if sha256(block_content) == block['hash']:
-                        break
-            assert i == block['id']
-            if not await create_block(block_content.hex(), txs):
-                return
-            last_block_hash = block['hash']
-            i += 1
-        Manager.difficulty = None
+        if not blocks:
+            print('syncing complete')
+            return
+        try:
+            assert await create_blocks(blocks)
+        except Exception as e:
+            print(e)
+            if local_cache is not None:
+                await db.delete_blocks(last_common_block)
+                await create_blocks(local_cache)
+            return
 
 
 async def sync_blockchain(node_url: str = None):
@@ -180,7 +211,7 @@ async def middleware(request: Request, call_next):
         NodesManager.add_node(request.headers['Sender-Node'])
 
     if nodes and not started or (ip_is_local(hostname) or hostname == 'localhost'):
-        await sync_blockchain()
+        if not started: await sync_blockchain()
         try:
             node_url = nodes[0]
             #requests.get(f'{node_url}/add_node', {'url': })
@@ -239,7 +270,7 @@ async def push_tx(tx_hex: str, background_tasks: BackgroundTasks):
 
 @app.post("/push_block")
 @app.get("/push_block")
-async def push_block(request: Request, background_tasks: BackgroundTasks, block_content: str = '', txs='', body=Body(False), id: int = None, ):
+async def push_block(request: Request, background_tasks: BackgroundTasks, block_content: str = '', txs='', body=Body(False), id: int = None):
     if body:
         txs = body['txs']
         if 'block_content' in body:
@@ -248,34 +279,49 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
         txs = txs.split(',')
         if txs == ['']:
             txs = []
+    previous_hash = split_block_content(block_content)[0]
     next_block_id = await db.get_next_block_id()
     if id is not None:
         if next_block_id < id:
             await sync_blockchain(request.headers['Sender-Node'] if 'Sender-Node' in request.headers else None)
-            if await db.get_next_block_id() != id:
+            if await db.get_next_block_id() != id + 1:
                 return {'ok': False, 'error': 'Could not sync blockchain'}
         if next_block_id > id:
             return {'ok': False, 'error': 'Too old block'}
     else:
-        id = next_block_id
+        id = (await db.get_block(previous_hash))['id']
     try:
-        added_transactions = await create_block(block_content, [await Transaction.from_hex(tx_hex) for tx_hex in txs])
-        if added_transactions == False:
-            if (True or await check_block_is_valid(block_content)) and id == next_block_id and (request and 'Sender-Node' in request.headers): # fixme
-                previous_hash = split_block_content(block_content)[0]
+        final_transactions = []
+        for tx_hex in txs:
+            if len(tx_hex) == 32:  # it's an hash
+                transaction = await db.get_transaction(tx_hex)
+                if transaction is None:
+                    if 'Sender-Node' in request.headers:
+                        await sync_blockchain(request.headers['Sender-Node'])
+                        return {'ok': False, 'error': 'Transaction hash not found, had to sync according to sender node, block may have been accepted'}
+                    else:
+                        return {'ok': False, 'error': 'Transaction hash not found'}
+                final_transactions.append(transaction)
+            else:
+                final_transactions.append(await Transaction.from_hex(tx_hex))
+        if not await create_block(block_content, final_transactions):
+            """if (True or await check_block_is_valid(block_content)) and id >= next_block_id and (request and 'Sender-Node' in request.headers): # fixme
                 _, last_block = await calculate_difficulty()
                 if previous_hash != last_block['hash']:
                     sender_node = request.headers['Sender-Node']
-                    await db.delete_block(next_block_id - 1)
+                    #await db.delete_block(next_block_id - 1)
                     await sync_blockchain(sender_node)
-                    return {'ok': False, 'error': 'Blockchain has been resynchronized according to sender node, block may have been accepted'}
+                    return {'ok': False, 'error': 'Blockchain has been resynchronized according to sender node, block may have been accepted'}"""
             return {'ok': False}
-        background_tasks.add_task(propagate, 'push_block', {'block_content': block_content, 'txs': ','.join(txs), 'id': id})
-        for tx in added_transactions:
-            await db.remove_pending_transaction(sha256(tx.hex()))
+        background_tasks.add_task(propagate, 'push_block', {
+            'block_content': block_content,
+            'txs': [tx.hex() for tx in final_transactions] if len(final_transactions) < 10 else txs,
+            'id': id
+        })
         return {'ok': True}
     except Exception as e:
         print(e)
+        raise
         return {'ok': False}
 
 
@@ -382,7 +428,7 @@ async def get_block(block: str, full_transactions: bool = False):
         if block_info is not None:
             block_hash = block_info['hash']
         else:
-            return {'ok': False, 'error': 'Not found block'}
+            return {'ok': False, 'error': 'Block not found'}
     else:
         block_hash = block
         block_info = await db.get_block(block_hash)
@@ -396,7 +442,7 @@ async def get_block(block: str, full_transactions: bool = False):
             'full_transactions': [await transaction_to_json(tx) for tx in txs] if full_transactions else None
         }}
     else:
-        return {'ok': False, 'error': 'Not found block'}
+        return {'ok': False, 'error': 'Block not found'}
 
 
 @app.get("/get_blocks")
