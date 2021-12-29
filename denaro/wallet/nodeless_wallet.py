@@ -24,7 +24,7 @@ def get_address_info(address: str):
     tx_inputs = []
     for spendable_tx_input in result['spendable_outputs']:
         tx_input = TransactionInput(spendable_tx_input['tx_hash'], spendable_tx_input['index'])
-        tx_input.amount = spendable_tx_input['amount']
+        tx_input.amount = Decimal(str(spendable_tx_input['amount']))
         tx_input.public_key = string_to_point(address)
         tx_inputs.append(tx_input)
     return result['balance'], tx_inputs
