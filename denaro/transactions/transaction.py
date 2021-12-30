@@ -82,11 +82,12 @@ class Transaction:
                 tx_input.transaction = txs[tx_hash]
 
     async def _check_signature(self):
+        tx_hex = self.hex(False)
         for tx_input in self.inputs:
             if tx_input.signed is None:
                 print('not signed')
                 return False
-            if not await tx_input.verify(self.hex(False)):
+            if not await tx_input.verify(tx_hex):
                 print('signature not valid')
                 return False
         return True
