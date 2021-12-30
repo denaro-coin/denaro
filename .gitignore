@@ -6,3 +6,4 @@ bot.py
 miner.html
 bot.session
 test.db
+postgres/

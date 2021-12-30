@@ -1,0 +1,48 @@
+version: "3.8"
+
+services:
+
+  denaro-node:
+    build:
+      context: ./
+      dockerfile: ./Dockerfile
+    image: denaro/denaro:0.2.0
+    container_name: denaro-node
+    environment:
+      DENARO_DATABASE_USER: "user"
+      DENARO_DATABASE_PASSWORD: "password"
+      DENARO_DATABASE_NAME: "denaro"
+      DENARO_DATABASE_HOST: "denaro-postgres"
+    tty: true
+    ports:
+      - 3006:3006
+    networks:
+      - denaro
+
+  denaro-postgres:
+    image: postgres:14.1-alpine3.15
+    container_name: denaro-postgres
+    environment:
+      POSTGRES_USER: "user"
+      POSTGRES_PASSWORD: "password"
+      POSTGRES_DB: "denaro"
+      POSTGRES_HOST: "denaro-postgres"
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./postgres:/var/lib/postgresql
+      - ./schema.sql:/docker-entrypoint-initdb.d/create_tables.sql
+    networks:
+      - denaro
+
+  denaro-adminer:
+    image: adminer:4.8.1
+    container_name: denaro-adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - denaro
+
+networks:
+  denaro:
+    driver: bridge
