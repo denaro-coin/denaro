@@ -171,9 +171,11 @@ class Database:
             })
         return result
 
-    async def get_block_by_id(self, block_id: int) -> Record:
+    async def get_block_by_id(self, block_id: int) -> dict:
         async with self.pool.acquire() as connection:
             block = await connection.fetchrow('SELECT * FROM blocks WHERE id = $1', block_id)
+            if block is None:
+                return None
             block = dict(block)
             block['address'] = block['address'].strip(' ')
             return block
