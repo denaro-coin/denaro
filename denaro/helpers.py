@@ -37,12 +37,9 @@ def timestamp():
 
 
 def sha256(message: Union[str, bytes]):
-    if isinstance(message, bytes):
-        return hashlib.sha256(message).hexdigest()
-    try:
-        return hashlib.sha256(bytes.fromhex(message)).hexdigest()
-    except ValueError:
-        return hashlib.sha256(bytes(message, 'utf-8')).hexdigest()
+    if isinstance(message, str):
+        message = bytes.fromhex(message)
+    return hashlib.sha256(message).hexdigest()
 
 
 def byte_length(i: int):
