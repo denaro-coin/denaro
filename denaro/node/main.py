@@ -88,7 +88,8 @@ def propagate(path: str, args: dict, ignore=None):
 
 async def create_blocks(blocks: list):
     _, last_block = await calculate_difficulty()
-    last_block_hash = last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()
+    last_block['id'] = last_block['id'] if last_block != {} else 0
+    last_block['hash'] = last_block['hash'] if 'hash' in last_block else (30_06_2005).to_bytes(32, ENDIAN).hex()
     i = last_block['id'] + 1
     for block_info in blocks:
         block = block_info['block']
@@ -100,20 +101,20 @@ async def create_blocks(blocks: list):
                 break
         block['merkle_tree'] = get_transactions_merkle_tree(txs) if i > 22500 else get_transactions_merkle_tree_ordered(
             txs)
-        block_content = block_to_bytes(last_block_hash, block)
+        block_content = block_to_bytes(last_block['hash'], block)
 
         if i <= 22500:
             from itertools import permutations
             for l in permutations(merkle_tree_txs):
                 txs = list(l)
                 block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
-                block_content = block_to_bytes(last_block_hash, block)
+                block_content = block_to_bytes(last_block['hash'], block)
                 if sha256(block_content) == block['hash']:
                     break
         assert i == block['id']
-        if not await create_block(block_content.hex(), txs):
+        if not await create_block(block_content.hex(), txs, last_block):
             return False
-        last_block_hash = block['hash']
+        last_block = block
         i += 1
     return True
 
@@ -129,27 +130,29 @@ async def _sync_blockchain(node_url: str = None):
     _, last_block = await calculate_difficulty()
     i = await db.get_next_block_id()
     node_interface = NodeInterface(node_url)
-    remote_last_block = node_interface.get_block(i-1)['block']
-    local_cache = None
-    print(remote_last_block['hash'])
-    if remote_last_block['hash'] != last_block['hash']:
-        offset, limit = i - 500, 500
-        remote_blocks = node_interface.get_blocks(i-500, 500)
-        local_blocks = await db.get_blocks(offset, limit)
-        local_blocks.reverse()
-        remote_blocks.reverse()
-        print(len(remote_blocks), len(local_blocks))
-        if len(local_blocks) > len(remote_blocks):
-            return
-        for n, local_block in enumerate(local_blocks):
-            if local_block['block']['hash'] == remote_blocks[n]['block']['hash']:
-                print(local_block, remote_blocks[n])
-                local_cache = local_blocks[:n]
-                local_cache.reverse()
-                last_common_block = i = local_block['block']['id']
-                await db.delete_blocks(last_common_block)
-                print([c['block']['id'] for c in local_cache])
-                break
+    if last_block != {}:
+        remote_last_block = node_interface.get_block(i-1)['block']
+        local_cache = None
+        print(remote_last_block['hash'])
+        if remote_last_block['hash'] != last_block['hash']:
+            offset, limit = i - 500, 500
+            remote_blocks = node_interface.get_blocks(i-500, 500)
+            local_blocks = await db.get_blocks(offset, limit)
+            local_blocks.reverse()
+            remote_blocks.reverse()
+            print(len(remote_blocks), len(local_blocks))
+            if len(local_blocks) > len(remote_blocks):
+                return
+            for n, local_block in enumerate(local_blocks):
+                if local_block['block']['hash'] == remote_blocks[n]['block']['hash']:
+                    print(local_block, remote_blocks[n])
+                    local_cache = local_blocks[:n]
+                    local_cache.reverse()
+                    last_common_block = i = local_block['block']['id']
+                    [await db.add_pending_transaction(await Transaction.from_hex(tx)) for tx in local_block['transactions']]
+                    await db.delete_blocks(last_common_block)
+                    print([c['block']['id'] for c in local_cache])
+                    break
 
     #return
     limit = 1000

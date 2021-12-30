@@ -91,7 +91,6 @@ class Database:
 
     async def add_transaction(self, transaction: Union[Transaction, CoinbaseTransaction], block_hash: str):
         tx_hex = transaction.hex()
-        assert await transaction.verify()
         async with self.pool.acquire() as connection:
             stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, fees) VALUES ($1, $2, $3, $4, $5)')
             await stmt.fetchval(

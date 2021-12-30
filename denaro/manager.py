@@ -199,14 +199,15 @@ def split_block_content(block_content: str):
     return previous_hash, address, merkle_tree, timestamp, difficulty, random
 
 
-async def check_block(block_content: str, transactions: List[Transaction]):
-    Manager.difficulty = None
+async def check_block(block_content: str, transactions: List[Transaction], mining_info: tuple = None):
+    if mining_info is None:
+        mining_info = await calculate_difficulty()
     previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
-    if not await check_block_is_valid(block_content):
+    if not await check_block_is_valid(block_content, mining_info):
         print('block not valid')
         return False
 
-    difficulty, last_block = await get_difficulty()
+    difficulty, last_block = mining_info
 
     content_time = int(content_time)
     if last_block != {} and previous_hash != last_block['hash']:
@@ -259,12 +260,17 @@ async def check_block(block_content: str, transactions: List[Transaction]):
     return True
 
 
-async def create_block(block_content: str, transactions: List[Transaction]):
+async def create_block(block_content: str, transactions: List[Transaction], last_block: dict = None):
     Manager.difficulty = None
-    if not await check_block(block_content, transactions):
+    if last_block is None or last_block['id'] % BLOCKS_COUNT == 0:
+        difficulty, last_block = await calculate_difficulty()
+    else:
+        difficulty = Decimal(str(last_block['difficulty']))
+        if isinstance(last_block['timestamp'], int):
+            last_block['timestamp'] = datetime.fromtimestamp(last_block['timestamp'])
+    if not await check_block(block_content, transactions, (difficulty, last_block)):
         return False
 
-    difficulty, last_block = await get_difficulty()
     database: Database = Database.instance
     block_hash = sha256(block_content)
     block_no = last_block['id'] + 1 if last_block != {} else 1
@@ -290,7 +296,8 @@ async def create_block(block_content: str, transactions: List[Transaction]):
             print(f'transaction {sha256(transaction.hex())} has not been added in block', e)
             await database.delete_block(block_no)
             return False
-    await database.remove_pending_transactions_by_hash([sha256(transaction.hex()) for transaction in transactions])
+    if transactions:
+        await database.remove_pending_transactions_by_hash([sha256(transaction.hex()) for transaction in transactions])
 
     print(f'Added {len(transactions)} transactions in block (+ coinbase). Reward: {block_reward}, Fees: {fees}')
     Manager.difficulty = None
