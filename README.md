@@ -8,7 +8,8 @@ Blocks are generated every ~3 minutes, with a limit of 1000 transactions per blo
 This makes possible to handle ~5 transactions per second, with a maximum block size of 2000kb.
 
 ## Setup with Docker
-+ `$ docker-compose up`
++ Build the base image with `make build`
++ `$ docker-compose up -d`
 
 ## Installation
 

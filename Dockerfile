@@ -8,4 +8,6 @@ RUN apt-get install -y libgmp3-dev gcc
 
 RUN pip install -r requirements.txt
 
-CMD uvicorn denaro.node.main:app --port 3006 --workers 2
+RUN sed -i 's/node.main:app/denaro.node.main:app/' run_node.py
+
+CMD ["python", "run_node.py"]
