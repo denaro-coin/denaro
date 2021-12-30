@@ -42,6 +42,8 @@ class Database:
         return await self.pool.acquire()"""
 
     async def add_pending_transaction(self, transaction: Transaction):
+        if isinstance(transaction, CoinbaseTransaction):
+            return False
         tx_hex = transaction.hex()
         if await self.get_transaction(sha256(tx_hex), False) is not None or not await transaction.verify():
             return False
