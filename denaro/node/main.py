@@ -154,7 +154,7 @@ async def _sync_blockchain(node_url: str = None):
     #return
     limit = 1000
     while True:
-        print(i)
+        i = await db.get_next_block_id()
         try:
             blocks = node_interface.get_blocks(i, limit)
         except Exception as e:
@@ -192,8 +192,6 @@ async def startup():
         database=environ.get('DENARO_DATABASE_NAME', 'denaro'),
         host=environ.get('DENARO_DATABASE_HOST', None)
     )
-
-    await sync_blockchain()
 
 
 @app.get("/")
@@ -293,8 +291,8 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
     try:
         final_transactions = []
         for tx_hex in txs:
-            if len(tx_hex) == 32:  # it's an hash
-                transaction = await db.get_transaction(tx_hex)
+            if len(tx_hex) == 64:  # it's an hash
+                transaction = await db.get_pending_transaction(tx_hex)
                 if transaction is None:
                     if 'Sender-Node' in request.headers:
                         await sync_blockchain(request.headers['Sender-Node'])
@@ -342,8 +340,9 @@ async def get_mining_info(background_tasks: BackgroundTasks):
     return {'ok': True, 'result': {
         'difficulty': difficulty,
         'last_block': last_block,
-        'pending_transactions': pending_transactions,
-        'merkle_root': get_transactions_merkle_tree(pending_transactions)
+        'pending_transactions': pending_transactions[:10],
+        'pending_transactions_hashes': (sha256(tx) for tx in pending_transactions),
+        'merkle_root': get_transactions_merkle_tree(pending_transactions[:10])
     }}
 
 
