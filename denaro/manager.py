@@ -50,8 +50,7 @@ def hashrate_to_difficulty(hashrate: int) -> Decimal:
 
 async def calculate_difficulty() -> Tuple[Decimal, dict]:
     database = Database.instance
-    async with database.pool.acquire() as connection:
-        last_block = await connection.fetchrow("SELECT * FROM blocks ORDER BY id DESC LIMIT 1")
+    last_block = await database.get_last_block()
     if last_block is None:
         return START_DIFFICULTY, dict()
     last_block = dict(last_block)

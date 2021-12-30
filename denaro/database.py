@@ -137,6 +137,15 @@ class Database:
             res = await connection.fetch('SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE $1 AND tx_hash != $2', f"%{contains}%", contains)
         return [await Transaction.from_hex(res['tx_hex']) for res in res] if res is not None else None
 
+    async def get_last_block(self) -> dict:
+        async with self.pool.acquire() as connection:
+            last_block = await connection.fetchrow("SELECT * FROM blocks ORDER BY id DESC LIMIT 1")
+        if last_block is None:
+            return None
+        last_block = dict(last_block)
+        last_block['address'] = last_block['address'].strip(' ')
+        return last_block
+
     async def get_next_block_id(self) -> int:
         async with self.pool.acquire() as connection:
             last_id = await connection.fetchval('SELECT id FROM blocks ORDER BY id DESC LIMIT 1', column=0)
