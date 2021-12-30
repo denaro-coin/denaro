@@ -8,7 +8,7 @@ from icecream import ic
 from . import TransactionInput, TransactionOutput
 from ..exceptions import DoubleSpendException
 from ..constants import ENDIAN, SMALLEST, MAX_TX_HEX_LENGTH, CURVE
-from ..helpers import point_to_string, bytes_to_string
+from ..helpers import point_to_string, bytes_to_string, sha256
 
 print = ic
 
@@ -57,42 +57,70 @@ class Transaction:
 
         return self._hex
 
+    def _verify_double_spend_same_transaction(self):
+        used_inputs = []
+        for tx_input in self.inputs:
+            input_hash = f"{tx_input.tx_hash}{tx_input.index}"
+            if input_hash in used_inputs:
+                return False
+            used_inputs.append(input_hash)
+        return True
+
+    async def _verify_double_spend(self):
+        from .. import Database
+        check_inputs = [tx_input.tx_hash + bytes([tx_input.index]).hex() for tx_input in self.inputs]
+        tx = await Database.instance.get_transaction_by_contains_multi(check_inputs, sha256(self.hex()))
+        return tx is None
+
+    async def _fill_transaction_inputs(self) -> None:
+        from .. import Database
+        check_inputs = [tx_input.tx_hash for tx_input in self.inputs if tx_input.transaction is None]
+        txs = await Database.instance.get_transactions(check_inputs)
+        for tx_input in self.inputs:
+            tx_hash = tx_input.tx_hash
+            if tx_hash in txs:
+                tx_input.transaction = txs[tx_hash]
+
+    async def _check_signature(self):
+        for tx_input in self.inputs:
+            if tx_input.signed is None:
+                print('not signed')
+                return False
+            if not await tx_input.verify(self.hex(False)):
+                print('signature not valid')
+                return False
+        return True
+
+    def _verify_outputs(self):
+        return all(tx_output.verify() for tx_output in self.outputs)
+
     async def verify(self) -> bool:
         if len(self.hex()) > MAX_TX_HEX_LENGTH:
             print(f'too long ({len(self.hex())})')
             return False
 
+        if not self._verify_double_spend_same_transaction():
+            print('double spend inside same transaction')
+            return False
+
+        if not await self._verify_double_spend():
+            print('double spend')
+            return False
+
+        await self._fill_transaction_inputs()
+
+        if not await self._check_signature():
+            return False
+
         input_amount = 0
-        used_inputs = []
         for tx_input in self.inputs:
-            input_hash = f"{tx_input.tx_hash}{tx_input.index}"
-            if input_hash in used_inputs:
-                print('double spend inside same transaction')
-                return False
-                raise DoubleSpendException
-            else:
-                used_inputs.append(input_hash)
-            if tx_input.signed is None or not await tx_input.verify(self.hex(False)):
-                print('not signed')
-                return False
-            from .. import Database
             related_output = await tx_input.get_related_output()
             input_amount += related_output.amount
-            txs: List[Transaction] = await Database.instance.get_transactions_by_contains(tx_input.tx_hash)
 
-            for related_tx in txs:
-                if related_tx == self:
-                    continue
-                for related_input in related_tx.inputs:
-                    if related_input.tx_hash == tx_input.tx_hash and related_input.index == tx_input.index:
-                        print('double spend')
-                        return False
-
-        output_amount = Decimal(0)
-        for tx_output in self.outputs:
-            if not tx_output.verify():
-                return False
-            output_amount += tx_output.amount
+        if not self._verify_outputs():
+            print('invalid outputs')
+            return False
+        output_amount = sum(tx_output.amount for tx_output in self.outputs)
 
         if input_amount >= output_amount:
             self.fees = input_amount - output_amount
