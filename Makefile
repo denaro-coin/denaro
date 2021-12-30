@@ -6,6 +6,3 @@ build:
 destroy:
 	docker container rm denaro-node
 	docker image rm denaro/denaro:$(APP_VERSION)
-	
-run:
-	docker container run -it --rm --publish 8080:80 --name az-frontend-react azinfo/az-frontend-react:$(APP_VERSION)
