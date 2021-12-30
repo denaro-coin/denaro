@@ -81,12 +81,13 @@ class Database:
         async with self.pool.acquire() as connection:
             await connection.execute('DELETE FROM blocks WHERE id > $1', offset)
 
-    async def get_pending_transactions_limit(self, limit: int = 1000, hex_only: bool = False) -> List[Transaction]:
+    async def get_pending_transactions_limit(self, limit: int = 1000, hex_only: bool = False) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees DESC LIMIT {limit}')
+        txs_hex = sorted(tx['tx_hex'] for tx in txs)
         if hex_only:
-            return [tx['tx_hex'] for tx in txs]
-        return [await Transaction.from_hex(tx['tx_hex']) for tx in txs]
+            return txs_hex
+        return [await Transaction.from_hex(tx_hex) for tx_hex in txs_hex]
 
     async def add_transaction(self, transaction: Union[Transaction, CoinbaseTransaction], block_hash: str):
         tx_hex = transaction.hex()
