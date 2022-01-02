@@ -72,10 +72,13 @@ class Transaction:
         tx = await Database.instance.get_transaction_by_contains_multi(check_inputs, sha256(self.hex()))
         return tx is None
 
-    async def _fill_transaction_inputs(self) -> None:
+    async def _fill_transaction_inputs(self, txs=None) -> None:
         from .. import Database
         check_inputs = [tx_input.tx_hash for tx_input in self.inputs if tx_input.transaction is None]
-        txs = await Database.instance.get_transactions(check_inputs)
+        if not check_inputs:
+            return
+        if txs is None:
+            txs = await Database.instance.get_transactions(check_inputs)
         for tx_input in self.inputs:
             tx_hash = tx_input.tx_hash
             if tx_hash in txs:
@@ -95,7 +98,7 @@ class Transaction:
     def _verify_outputs(self):
         return all(tx_output.verify() for tx_output in self.outputs)
 
-    async def verify(self) -> bool:
+    async def verify(self, check_double_spend: bool = True) -> bool:
         if len(self.hex()) > MAX_TX_HEX_LENGTH:
             print(f'too long ({len(self.hex())})')
             return False
@@ -104,7 +107,7 @@ class Transaction:
             print('double spend inside same transaction')
             return False
 
-        if not await self._verify_double_spend():
+        if check_double_spend and not await self._verify_double_spend():
             print('double spend')
             return False
 
