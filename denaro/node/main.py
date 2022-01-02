@@ -290,7 +290,15 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
         if next_block_id > id:
             return {'ok': False, 'error': 'Too old block'}
     else:
-        id = (await db.get_block(previous_hash))['id']
+        previous_block = await db.get_block(previous_hash)
+        if previous_block is None:
+            if 'Sender-Node' in request.headers:
+                await sync_blockchain(request.headers['Sender-Node'])
+                return {'ok': False,
+                        'error': 'Previous hash not found, had to sync according to sender node, block may have been accepted'}
+            else:
+                return {'ok': False, 'error': 'Previous hash not found'}
+        id = previous_block['id']
     try:
         final_transactions = []
         for tx_hex in txs:
