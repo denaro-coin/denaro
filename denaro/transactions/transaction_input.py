@@ -15,10 +15,10 @@ class TransactionInput:
     signed: Tuple[int, int] = None
     amount: Decimal = None
 
-    def __init__(self, input_tx_hash: str, index: int, signed: Tuple[int, int] = None):
+    def __init__(self, input_tx_hash: str, index: int, private_key: int = None):
         self.tx_hash = input_tx_hash
         self.index = index
-        self.signed = signed
+        self.private_key = private_key
 
     async def get_transaction(self):
         if self.transaction is None:
@@ -33,13 +33,6 @@ class TransactionInput:
         related_output = tx.outputs[self.index]
         self.amount = related_output.amount
         return related_output
-
-    @staticmethod
-    def from_private_key(input_tx_hex: str, private_key: int, index: int = 0):
-        self = TransactionInput(input_tx_hex, index)
-        self.private_key = private_key
-        self.public_key = keys.get_public_key(private_key, CURVE)
-        return self
 
     def sign(self, tx_hex: str, private_key: int = None):
         private_key = private_key if private_key is not None else self.private_key
