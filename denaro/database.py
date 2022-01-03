@@ -17,7 +17,7 @@ class Database:
     pool: Pool = None
 
     @staticmethod
-    async def create(user='denaro', password='', database='denaro', host='127.0.0.1'):
+    async def create(user='denaro', password='', database='denaro', host='127.0.0.1', ignore: bool = False):
         self = Database()
         #self.connection = await asyncpg.connect(user=user, password=password, database=database, host=host)
         self.pool = await asyncpg.create_pool(
@@ -28,15 +28,16 @@ class Database:
             command_timeout=30,
             min_size=3
         )
-        async with self.pool.acquire() as connection:
-            try:
-                res = await connection.fetchrow('SELECT * FROM unspent_outputs WHERE true LIMIT 1')
-                if res is None:
+        if not ignore:
+            async with self.pool.acquire() as connection:
+                try:
+                    res = await connection.fetchrow('SELECT * FROM unspent_outputs WHERE true LIMIT 1')
+                    if res is None:
+                        print('Unspent outputs missing, run create_unspent_outputs.py')
+                        exit()
+                except UndefinedTableError:
                     print('Unspent outputs missing, run create_unspent_outputs.py')
                     exit()
-            except UndefinedTableError:
-                print('Unspent outputs missing, run create_unspent_outputs.py')
-                exit()
         Database.instance = self
         return self
 

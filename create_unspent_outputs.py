@@ -13,7 +13,8 @@ async def run():
         user=environ.get('DENARO_DATABASE_USER', 'denaro'),
         password=environ.get('DENARO_DATABASE_PASSWORD', ''),
         database=environ.get('DENARO_DATABASE_NAME', 'denaro'),
-        host=environ.get('DENARO_DATABASE_HOST', None)
+        host=environ.get('DENARO_DATABASE_HOST', None),
+        ignore=True
     )
     async with db.pool.acquire() as connection:
         try:
