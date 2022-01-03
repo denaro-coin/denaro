@@ -32,9 +32,6 @@ class Database:
             async with self.pool.acquire() as connection:
                 try:
                     res = await connection.fetchrow('SELECT * FROM unspent_outputs WHERE true LIMIT 1')
-                    if res is None:
-                        print('Unspent outputs missing, run create_unspent_outputs.py')
-                        exit()
                 except UndefinedTableError:
                     print('Unspent outputs missing, run create_unspent_outputs.py')
                     exit()
