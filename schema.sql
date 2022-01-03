@@ -23,8 +23,7 @@ CREATE TYPE tx_output AS (
 
 CREATE TABLE IF NOT EXISTS unspent_outputs (
 	tx_hash CHAR(64) REFERENCES transactions(tx_hash),
-	index SMALLINT NOT NULL,
-    output CHAR(66) NOT NULL
+	index SMALLINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS pending_transactions (
