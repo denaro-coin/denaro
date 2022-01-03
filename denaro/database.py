@@ -1,10 +1,10 @@
 from datetime import datetime
 from decimal import Decimal
 from dateutil import parser
-from typing import List, Union
+from typing import List, Union, Tuple
 
 import asyncpg
-from asyncpg import Connection, Record, Pool
+from asyncpg import Connection, Pool, UndefinedTableError
 
 from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat
 from .transactions import Transaction, CoinbaseTransaction, TransactionInput
@@ -28,6 +28,15 @@ class Database:
             command_timeout=30,
             min_size=3
         )
+        async with self.pool.acquire() as connection:
+            try:
+                res = await connection.fetchrow('SELECT * FROM unspent_outputs WHERE true LIMIT 1')
+                if res is None:
+                    print('Unspent outputs missing, run create_unspent_outputs.py')
+                    exit()
+            except UndefinedTableError:
+                print('Unspent outputs missing, run create_unspent_outputs.py')
+                exit()
         Database.instance = self
         return self
 
@@ -212,6 +221,37 @@ class Database:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch('SELECT * FROM transactions WHERE block_hash = $1', block_hash)
         return [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs] if txs is not None else None
+
+    async def add_unspent_outputs(self, outputs: List[Tuple[str, int]]) -> None:
+        async with self.pool.acquire() as connection:
+            await connection.executemany('INSERT INTO unspent_outputs (tx_hash, index) VALUES ($1, $2)', outputs)
+
+    async def add_unspent_transactions_outputs(self, transactions: List[Transaction]) -> None:
+        outputs = sum([[(transaction.hash(), index) for index in range(len(transaction.outputs))] for transaction in transactions], [])
+        await self.add_unspent_outputs(outputs)
+
+    async def remove_unspent_outputs(self, transactions: List[Transaction]) -> None:
+        inputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions], [])
+        async with self.pool.acquire() as connection:
+            await connection.execute('DELETE FROM unspent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', inputs)
+
+    async def get_unspent_outputs(self, outputs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+        async with self.pool.acquire() as connection:
+            results = await connection.fetch('SELECT tx_hash, index FROM unspent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', outputs)
+            return [(row['tx_hash'], row['index']) for row in results]
+
+    async def get_unspent_outputs_from_all_transactions(self):
+        async with self.pool.acquire() as connection:
+            txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE true')
+            transactions = {sha256(tx['tx_hex']): await Transaction.from_hex(tx['tx_hex'], False) for tx in txs}
+            outputs = sum([[transaction.hash() + bytes([index]).hex() for index in range(len(transaction.outputs))] for transaction in transactions.values()], [])
+            for tx_hash, transaction in transactions.items():
+                if isinstance(transaction, CoinbaseTransaction):
+                    continue
+                for output in outputs.copy():
+                    if output in tx_hash:
+                        outputs.remove(output)
+            return [(output[:64], int(output[64:], 16)) for output in outputs]
 
     async def get_spendable_outputs(self, address: str, check_pending_txs: bool = False) -> List[TransactionInput]:
         point = string_to_point(address)

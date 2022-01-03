@@ -16,6 +16,17 @@ CREATE TABLE IF NOT EXISTS transactions (
 	fees NUMERIC(14, 6) NOT NULL
 );
 
+CREATE TYPE tx_output AS (
+    tx_hash CHAR(64),
+    index SMALLINT
+);
+
+CREATE TABLE IF NOT EXISTS unspent_outputs (
+	tx_hash CHAR(64) REFERENCES transactions(tx_hash),
+	index SMALLINT NOT NULL,
+    output CHAR(66) NOT NULL
+);
+
 CREATE TABLE IF NOT EXISTS pending_transactions (
 	tx_hash CHAR(64) UNIQUE,
 	tx_hex VARCHAR(2048) UNIQUE,

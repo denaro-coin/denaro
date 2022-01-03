@@ -233,9 +233,21 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         return False
     transactions = [tx for tx in transactions if isinstance(tx, Transaction)]
 
+    if transactions:
+        check_inputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions], [])
+        unspent_outputs = await database.get_unspent_outputs(check_inputs)
+        if len(unspent_outputs) != len(check_inputs):
+            print('double spend in block')
+            return False
+
+        input_txs_hash = sum([[tx_input.tx_hash for tx_input in transaction.inputs] for transaction in transactions], [])
+        input_txs = await database.get_transactions(input_txs_hash)
+        for transaction in transactions:
+            await transaction._fill_transaction_inputs(input_txs)
+
     used_inputs = []
     for transaction in transactions:
-        if not await transaction.verify():
+        if not await transaction.verify(check_double_spend=False):
             print('transaction has been not verified')
             return False
         else:
@@ -282,11 +294,6 @@ async def create_block(block_content: str, transactions: List[Transaction], last
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
 
     await database.add_block(block_no, block_hash, address, random, difficulty, block_reward + fees, datetime.fromtimestamp(content_time))
-
-    if not await coinbase_transaction.verify():
-        print('coinbase transaction not verified')
-        await database.delete_block(block_no)
-        return False
     await database.add_transaction(coinbase_transaction, block_hash)
 
     for transaction in transactions:
@@ -296,10 +303,12 @@ async def create_block(block_content: str, transactions: List[Transaction], last
             print(f'transaction {sha256(transaction.hex())} has not been added in block', e)
             await database.delete_block(block_no)
             return False
+    await database.add_unspent_transactions_outputs(transactions + [coinbase_transaction])
     if transactions:
         await database.remove_pending_transactions_by_hash([sha256(transaction.hex()) for transaction in transactions])
+        await database.remove_unspent_outputs(transactions)
 
-    print(f'Added {len(transactions)} transactions in block (+ coinbase). Reward: {block_reward}, Fees: {fees}')
+        _print(f'Added {len(transactions)} transactions in block {block_no}. Reward: {block_reward}, Fees: {fees}')
     Manager.difficulty = None
     return True
 
