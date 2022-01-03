@@ -172,6 +172,8 @@ class Database:
     async def get_block(self, block_hash: str) -> dict:
         async with self.pool.acquire() as connection:
             block = await connection.fetchrow('SELECT * FROM blocks WHERE hash = $1', block_hash)
+            if block is None:
+                return None
             block = dict(block)
             block['address'] = block['address'].strip(' ')
             return block
