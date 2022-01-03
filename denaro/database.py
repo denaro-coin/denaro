@@ -25,7 +25,7 @@ class Database:
             password=password,
             database=database,
             host=host,
-            command_timeout=6,
+            command_timeout=30,
             min_size=3
         )
         Database.instance = self
