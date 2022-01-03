@@ -1,6 +1,7 @@
 from decimal import Decimal
 
 from ..constants import ENDIAN
+from ..helpers import sha256
 from ..transactions import TransactionOutput
 
 
@@ -41,3 +42,6 @@ class CoinbaseTransaction:
         ])
 
         return self._hex
+
+    def hash(self):
+        return sha256(self.hex())

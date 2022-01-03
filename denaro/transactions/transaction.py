@@ -57,6 +57,9 @@ class Transaction:
 
         return self._hex
 
+    def hash(self):
+        return sha256(self.hex())
+
     def _verify_double_spend_same_transaction(self):
         used_inputs = []
         for tx_input in self.inputs:
