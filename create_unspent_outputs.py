@@ -1,4 +1,5 @@
 import asyncio
+from os import environ
 
 from asyncpg import UndefinedTableError
 
@@ -8,7 +9,12 @@ from denaro.node.main import sync_blockchain
 
 
 async def run():
-    db = denaro.node.main.db = await Database.create('gaetano')
+    db = denaro.node.main.db = await Database.create(
+        user=environ.get('DENARO_DATABASE_USER', 'denaro'),
+        password=environ.get('DENARO_DATABASE_PASSWORD', ''),
+        database=environ.get('DENARO_DATABASE_NAME', 'denaro'),
+        host=environ.get('DENARO_DATABASE_HOST', None)
+    )
     async with db.pool.acquire() as connection:
         try:
             res = await connection.fetchrow('SELECT * FROM unspent_outputs WHERE true LIMIT 1')
