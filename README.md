@@ -25,8 +25,6 @@ You have to set environmental variables for database access:
 ```bash
 # install postgresql
 createdb denaro
-psql -d denaro
-## paste content of schema.sql
 ```
 
 Then install denaro.  
@@ -34,8 +32,9 @@ Then install denaro.
 ```bash
 git clone https://github.com/denaro-coin/denaro
 cd denaro
+psql -d denaro -f schema.sql
 pip3 install -r requirements.txt
-uvicorn denaro.node.main:app --port 3006 --workers 2
+uvicorn denaro.node.main:app --port 3006
 ```
 
 Node should now sync the blockchain and start working
