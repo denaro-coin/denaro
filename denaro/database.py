@@ -134,13 +134,19 @@ class Database:
             res = await connection.fetch('SELECT tx_hex FROM transactions WHERE tx_hash = ANY($1)', tx_hashes)
         return {sha256(res['tx_hex']): await Transaction.from_hex(res['tx_hex']) for res in res}
 
-    async def get_transaction_by_contains_multi(self, contains: List[str], ignore: str):
+    async def get_transaction_by_contains_multi(self, contains: List[str], ignore: str = None):
         async with self.pool.acquire() as connection:
-            res = await connection.fetchrow(
-                'SELECT tx_hex FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash != $2',
-                [f"%{contains}%" for contains in contains],
-                ignore
-            )
+            if ignore is not None:
+                res = await connection.fetchrow(
+                    'SELECT tx_hash FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash != $2 LIMIT 1',
+                    [f"%{contains}%" for contains in contains],
+                    ignore
+                )
+            else:
+                res = await connection.fetchrow(
+                    'SELECT tx_hash FROM transactions WHERE tx_hex LIKE ANY($1) LIMIT 1',
+                    [f"%{contains}%" for contains in contains],
+                )
         return await Transaction.from_hex(res['tx_hex']) if res is not None else None
 
     async def get_pending_transactions_by_contains(self, contains: str):
