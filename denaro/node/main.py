@@ -347,8 +347,6 @@ async def sync(node_url: str = None):
 async def get_mining_info(background_tasks: BackgroundTasks):
     Manager.difficulty = None
     difficulty, last_block = await get_difficulty()
-    last_block = last_block.copy()
-    last_block['timestamp'] = int(last_block['timestamp'].timestamp())
     pending_transactions = await db.get_pending_transactions_limit(1000, True)
     if random.randint(0, 10 + len(pending_transactions)) == 0:
         background_tasks.add_task(clear_pending_transactions)

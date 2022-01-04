@@ -1,12 +1,11 @@
 from datetime import datetime
 from decimal import Decimal
-from dateutil import parser
 from typing import List, Union, Tuple
 
 import asyncpg
 from asyncpg import Connection, Pool, UndefinedTableError
 
-from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat
+from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat, normalize_block
 from .transactions import Transaction, CoinbaseTransaction, TransactionInput
 
 
@@ -169,11 +168,7 @@ class Database:
     async def get_last_block(self) -> dict:
         async with self.pool.acquire() as connection:
             last_block = await connection.fetchrow("SELECT * FROM blocks ORDER BY id DESC LIMIT 1")
-        if last_block is None:
-            return None
-        last_block = dict(last_block)
-        last_block['address'] = last_block['address'].strip(' ')
-        return last_block
+        return normalize_block(last_block) if last_block is not None else None
 
     async def get_next_block_id(self) -> int:
         async with self.pool.acquire() as connection:
@@ -184,11 +179,7 @@ class Database:
     async def get_block(self, block_hash: str) -> dict:
         async with self.pool.acquire() as connection:
             block = await connection.fetchrow('SELECT * FROM blocks WHERE hash = $1', block_hash)
-            if block is None:
-                return None
-            block = dict(block)
-            block['address'] = block['address'].strip(' ')
-            return block
+        return normalize_block(block) if block is not None else None
 
     async def get_blocks(self, offset: int, limit: int) -> list:
         async with self.pool.acquire() as connection:
@@ -196,9 +187,7 @@ class Database:
             blocks = await connection.fetch(f'SELECT * FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2', offset, limit)
         result = []
         for block in blocks:
-            block = dict(block)
-            block['address'] = block['address'].strip(' ')
-            block['timestamp'] = int(block['timestamp'].timestamp())
+            block = normalize_block(block)
             txs = []
             for transaction in transactions.copy():
                 if transaction['block_hash'] == block['hash']:
@@ -214,11 +203,7 @@ class Database:
     async def get_block_by_id(self, block_id: int) -> dict:
         async with self.pool.acquire() as connection:
             block = await connection.fetchrow('SELECT * FROM blocks WHERE id = $1', block_id)
-            if block is None:
-                return None
-            block = dict(block)
-            block['address'] = block['address'].strip(' ')
-            return block
+        return normalize_block(block) if block is not None else None
 
     async def get_block_transactions(self, block_hash: str, check_signatures: bool = True) -> List[Union[Transaction, CoinbaseTransaction]]:
         async with self.pool.acquire() as connection:

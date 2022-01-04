@@ -46,6 +46,13 @@ def byte_length(i: int):
     return ceil(i.bit_length() / 8.0)
 
 
+def normalize_block(block) -> dict:
+    block = dict(block)
+    block['address'] = block['address'].strip(' ')
+    block['timestamp'] = int(block['timestamp'].replace(tzinfo=timezone.utc).timestamp())
+    return block
+
+
 def x_to_y(x: int, is_odd: bool = False):
     a, b, p = CURVE.a, CURVE.b, CURVE.p
     y2 = x ** 3 + a * x + b

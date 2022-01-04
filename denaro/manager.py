@@ -13,7 +13,7 @@ from .helpers import sha256, timestamp, bytes_to_string, string_to_bytes
 from .transactions import CoinbaseTransaction, Transaction
 
 BLOCK_TIME = 180
-BLOCKS_COUNT = 500
+BLOCKS_COUNT = Decimal(500)
 START_DIFFICULTY = Decimal('6.0')
 
 _print = print
@@ -61,7 +61,6 @@ async def calculate_difficulty() -> Tuple[Decimal, dict]:
     if last_block['id'] % BLOCKS_COUNT == 0:
         last_adjust_block = await database.get_block_by_id(last_block['id'] - BLOCKS_COUNT + 1)
         elapsed = last_block['timestamp'] - last_adjust_block['timestamp']
-        elapsed = Decimal(elapsed.total_seconds())
         average_per_block = elapsed / BLOCKS_COUNT
         last_difficulty = last_block['difficulty']
         hashrate = difficulty_to_hashrate_old(last_difficulty) if last_block['id'] <= 17500 else difficulty_to_hashrate(last_difficulty)
@@ -219,7 +218,7 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         print(difficulty)
         return False
 
-    if (last_block['timestamp'].replace(tzinfo=timezone.utc).timestamp() if 'timestamp' in last_block else 0) > content_time:
+    if (last_block['timestamp'] if 'timestamp' in last_block else 0) > content_time:
         print('timestamp younger than previous block')
         return False
 
@@ -253,7 +252,7 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         else:
             tx_inputs = [f"{tx_input.tx_hash}{tx_input.index}" for tx_input in transaction.inputs]
             if any(used_input in tx_inputs for used_input in used_inputs):
-                await database.remove_pending_transaction(sha256(transaction.hex()))
+                await database.remove_pending_transaction(transaction.hash())
                 return False
             else:
                 used_inputs += tx_inputs
@@ -278,8 +277,6 @@ async def create_block(block_content: str, transactions: List[Transaction], last
         difficulty, last_block = await calculate_difficulty()
     else:
         difficulty = Decimal(str(last_block['difficulty']))
-        if isinstance(last_block['timestamp'], int):
-            last_block['timestamp'] = datetime.utcfromtimestamp(last_block['timestamp'])
     if not await check_block(block_content, transactions, (difficulty, last_block)):
         return False
 
@@ -300,12 +297,12 @@ async def create_block(block_content: str, transactions: List[Transaction], last
         try:
             await database.add_transaction(transaction, block_hash)
         except Exception as e:
-            print(f'transaction {sha256(transaction.hex())} has not been added in block', e)
+            print(f'transaction {transaction.hash()} has not been added in block', e)
             await database.delete_block(block_no)
             return False
     await database.add_unspent_transactions_outputs(transactions + [coinbase_transaction])
     if transactions:
-        await database.remove_pending_transactions_by_hash([sha256(transaction.hex()) for transaction in transactions])
+        await database.remove_pending_transactions_by_hash([transaction.hash() for transaction in transactions])
         await database.remove_unspent_outputs(transactions)
 
         _print(f'Added {len(transactions)} transactions in block {block_no}. Reward: {block_reward}, Fees: {fees}')
