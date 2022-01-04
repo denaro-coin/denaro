@@ -136,6 +136,11 @@ class Database:
             res = await connection.fetchrow('SELECT tx_hex FROM pending_transactions WHERE tx_hash = $1', tx_hash)
         return await Transaction.from_hex(res['tx_hex'], check_signatures) if res is not None else None
 
+    async def get_pending_transactions_by_hash(self, hashes: str, check_signatures: bool = True) -> List[Transaction]:
+        async with self.pool.acquire() as connection:
+            res = await connection.fetch('SELECT tx_hex FROM pending_transactions WHERE tx_hash = ANY($1)', hashes)
+        return [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in res]
+
     async def get_transactions(self, tx_hashes: List[str]):
         async with self.pool.acquire() as connection:
             res = await connection.fetch('SELECT tx_hex FROM transactions WHERE tx_hash = ANY($1)', tx_hashes)

@@ -301,18 +301,22 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
         id = previous_block['id']
     try:
         final_transactions = []
+        hashes = []
         for tx_hex in txs:
             if len(tx_hex) == 64:  # it's an hash
-                transaction = await db.get_pending_transaction(tx_hex)
-                if transaction is None:
-                    if 'Sender-Node' in request.headers:
-                        await sync_blockchain(request.headers['Sender-Node'])
-                        return {'ok': False, 'error': 'Transaction hash not found, had to sync according to sender node, block may have been accepted'}
-                    else:
-                        return {'ok': False, 'error': 'Transaction hash not found'}
-                final_transactions.append(transaction)
+                hashes.append(tx_hex)
             else:
                 final_transactions.append(await Transaction.from_hex(tx_hex))
+        if hashes:
+            pending_transactions = await db.get_pending_transactions_by_hash(hashes)
+            if len(pending_transactions) < len(hashes):  # one or more tx not found
+                if 'Sender-Node' in request.headers:
+                    await sync_blockchain(request.headers['Sender-Node'])
+                    return {'ok': False,
+                            'error': 'Transaction hash not found, had to sync according to sender node, block may have been accepted'}
+                else:
+                    return {'ok': False, 'error': 'Transaction hash not found'}
+            final_transactions.extend(pending_transactions)
         if not await create_block(block_content, final_transactions):
             """if (True or await check_block_is_valid(block_content)) and id >= next_block_id and (request and 'Sender-Node' in request.headers): # fixme
                 _, last_block = await calculate_difficulty()
