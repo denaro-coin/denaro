@@ -108,7 +108,7 @@ class Database:
                 transaction.fees if isinstance(transaction, Transaction) else 0
             )
 
-    async def add_block(self, id: int, block_hash: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, str]):
+    async def add_block(self, id: int, block_hash: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, int]):
         async with self.pool.acquire() as connection:
             stmt = await connection.prepare('INSERT INTO blocks (id, hash, address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)')
             await stmt.fetchval(
@@ -118,7 +118,7 @@ class Database:
                 random,
                 difficulty,
                 reward,
-                timestamp if isinstance(timestamp, datetime) else parser.parse(timestamp)
+                timestamp if isinstance(timestamp, datetime) else datetime.utcfromtimestamp(timestamp)
             )
         from .manager import Manager
         Manager.difficulty = None

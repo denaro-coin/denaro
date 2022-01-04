@@ -1,5 +1,5 @@
 import hashlib
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from io import BytesIO
 from math import ceil, floor, log
@@ -219,7 +219,7 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         print(difficulty)
         return False
 
-    if (last_block['timestamp'].timestamp() if 'timestamp' in last_block else 0) > content_time:
+    if (last_block['timestamp'].replace(tzinfo=timezone.utc).timestamp() if 'timestamp' in last_block else 0) > content_time:
         print('timestamp younger than previous block')
         return False
 
@@ -279,7 +279,7 @@ async def create_block(block_content: str, transactions: List[Transaction], last
     else:
         difficulty = Decimal(str(last_block['difficulty']))
         if isinstance(last_block['timestamp'], int):
-            last_block['timestamp'] = datetime.fromtimestamp(last_block['timestamp'])
+            last_block['timestamp'] = datetime.utcfromtimestamp(last_block['timestamp'])
     if not await check_block(block_content, transactions, (difficulty, last_block)):
         return False
 
@@ -293,7 +293,7 @@ async def create_block(block_content: str, transactions: List[Transaction], last
     block_reward = get_block_reward(block_no)
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
 
-    await database.add_block(block_no, block_hash, address, random, difficulty, block_reward + fees, datetime.fromtimestamp(content_time))
+    await database.add_block(block_no, block_hash, address, random, difficulty, block_reward + fees, content_time)
     await database.add_transaction(coinbase_transaction, block_hash)
 
     for transaction in transactions:
