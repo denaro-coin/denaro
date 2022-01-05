@@ -121,3 +121,27 @@ def string_to_point(string: str) -> Point:
     return bytes_to_point(string_to_bytes(string))
 
 
+async def transaction_to_json(tx, verify: bool = False):
+    from denaro.transactions import CoinbaseTransaction
+    if verify: await tx.verify()
+    if isinstance(tx, CoinbaseTransaction):
+        transaction = {'is_coinbase': True, 'block_hash': tx.block_hash, 'outputs': []}
+    else:
+        transaction = {'is_coinbase': False, 'block_hash': tx.block_hash, 'payload': tx.payload, 'inputs': [], 'outputs': [], 'fees': tx.fees}
+        for input in tx.inputs:
+            related_transaction = await transaction_to_json(await input.get_transaction()) if verify else None
+            transaction['inputs'].append({
+                'index': input.index,
+                'tx_hash': input.tx_hash,
+                'signature': input.get_signature() if input.signed is not None else None,
+                'address': (await input.get_related_output()).address if verify else None,
+                'amount': input.amount,
+                'transaction': related_transaction
+            })
+    for output in tx.outputs:
+        transaction['outputs'].append({
+            'address': output.address,
+            'amount': output.amount
+        })
+    return transaction
+
