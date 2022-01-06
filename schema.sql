@@ -22,7 +22,7 @@ CREATE TYPE tx_output AS (
 );
 
 CREATE TABLE IF NOT EXISTS unspent_outputs (
-	tx_hash CHAR(64) REFERENCES transactions(tx_hash),
+	tx_hash CHAR(64) REFERENCES transactions(tx_hash) ON DELETE CASCADE,
 	index SMALLINT NOT NULL
 );
 
