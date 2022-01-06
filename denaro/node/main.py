@@ -421,8 +421,6 @@ async def get_block(block: str, full_transactions: bool = False):
         block_hash = block
         block_info = await db.get_block(block_hash)
     if block_info:
-        block_info = dict(block_info)
-        block_info['timestamp'] = int(block_info['timestamp'].timestamp())
         txs = await db.get_block_transactions(block_hash)
         return {'ok': True, 'result': {
             'block': block_info,
