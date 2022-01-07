@@ -301,7 +301,7 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
                         'error': 'Previous hash not found, had to sync according to sender node, block may have been accepted'}
             else:
                 return {'ok': False, 'error': 'Previous hash not found'}
-        id = previous_block['id']
+        id = previous_block['id'] + 1
     if next_block_id < id:
         await sync_blockchain(request.headers['Sender-Node'] if 'Sender-Node' in request.headers else None)
         if await db.get_next_block_id() != id + 1:
