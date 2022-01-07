@@ -133,8 +133,8 @@ async def _sync_blockchain(node_url: str = None):
     if last_block != {}:
         remote_last_block = node_interface.get_block(i-1)['block']
         local_cache = None
-        print(remote_last_block['hash'])
         if remote_last_block['hash'] != last_block['hash']:
+            print(remote_last_block['hash'])
             offset, limit = i - 500, 500
             remote_blocks = node_interface.get_blocks(i-500, 500)
             local_blocks = await db.get_blocks(offset, limit)
@@ -149,8 +149,11 @@ async def _sync_blockchain(node_url: str = None):
                     local_cache = local_blocks[:n]
                     local_cache.reverse()
                     last_common_block = i = local_block['block']['id']
-                    [await db.add_pending_transaction(await Transaction.from_hex(tx)) for tx in local_block['transactions']]
+                    blocks_to_remove = await db.get_blocks(last_common_block + 1, 500)
+                    transactions_to_remove = sum([block_to_remove['transactions'] for block_to_remove in blocks_to_remove], [])
                     await db.delete_blocks(last_common_block)
+                    for tx in transactions_to_remove:
+                        await db.add_pending_transaction(await Transaction.from_hex(tx))
                     print([c['block']['id'] for c in local_cache])
                     break
 
