@@ -6,7 +6,6 @@ from fastecdsa import keys
 from icecream import ic
 
 from . import TransactionInput, TransactionOutput
-from ..exceptions import DoubleSpendException
 from ..constants import ENDIAN, SMALLEST, MAX_TX_HEX_LENGTH, CURVE
 from ..helpers import point_to_string, bytes_to_string, sha256
 
@@ -18,10 +17,11 @@ class Transaction:
     fees: Decimal = None
     block_hash: str = None
 
-    def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput]):
+    def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput], message: bytes = None):
         assert len(inputs) < 256
         self.inputs = inputs
         self.outputs = outputs
+        self.message = message
 
     def hex(self, full: bool = True):
         inputs, outputs = self.inputs, self.outputs
@@ -46,7 +46,11 @@ class Transaction:
         if not full:
             return self._hex
 
-        self._hex += (0).to_bytes(1, ENDIAN).hex()
+        if self.message is not None:
+            self._hex += bytes([1, len(self.message)]).hex()
+            self._hex += self.message.hex()
+        else:
+            self._hex += (0).to_bytes(1, ENDIAN).hex()
 
         signatures = []
         for tx_input in inputs:
@@ -179,7 +183,12 @@ class Transaction:
             from . import CoinbaseTransaction
             return CoinbaseTransaction(inputs[0].tx_hash, outputs[0].address, outputs[0].amount)
         else:
-            assert specifier == 0
+            if specifier == 1:
+                message_length = int.from_bytes(tx_bytes.read(1), ENDIAN)
+                message = tx_bytes.read(message_length)
+            else:
+                message = None
+                assert specifier == 0
 
             signatures = []
 
@@ -197,7 +206,7 @@ class Transaction:
                     tx_input.signed = signatures[i]
             else:
                 if not check_signatures:
-                    return Transaction(inputs, outputs)
+                    return Transaction(inputs, outputs, message)
                 index = {}
                 for tx_input in inputs:
                     public_key = point_to_string(await tx_input.get_public_key())
@@ -209,7 +218,7 @@ class Transaction:
                     for tx_input in index[list(index.keys())[i]]:
                         tx_input.signed = signed
 
-            return Transaction(inputs, outputs)
+            return Transaction(inputs, outputs, message)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
