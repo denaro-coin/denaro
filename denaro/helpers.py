@@ -127,7 +127,7 @@ async def transaction_to_json(tx, verify: bool = False):
     if isinstance(tx, CoinbaseTransaction):
         transaction = {'is_coinbase': True, 'block_hash': tx.block_hash, 'outputs': []}
     else:
-        transaction = {'is_coinbase': False, 'block_hash': tx.block_hash, 'message': tx.message, 'inputs': [], 'outputs': [], 'fees': tx.fees}
+        transaction = {'is_coinbase': False, 'block_hash': tx.block_hash, 'message': tx.message.hex(), 'inputs': [], 'outputs': [], 'fees': tx.fees}
         for input in tx.inputs:
             related_transaction = await transaction_to_json(await input.get_transaction()) if verify else None
             transaction['inputs'].append({
