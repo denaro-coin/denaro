@@ -51,7 +51,7 @@ class Database:
         if isinstance(transaction, CoinbaseTransaction):
             return False
         tx_hex = transaction.hex()
-        if not await transaction.verify():
+        if not await transaction.verify_pending():
             return False
         async with self.pool.acquire() as connection:
             await connection.fetch(
@@ -164,6 +164,21 @@ class Database:
         async with self.pool.acquire() as connection:
             res = await connection.fetch('SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE $1 AND tx_hash != $2', f"%{contains}%", contains)
         return [await Transaction.from_hex(res['tx_hex']) for res in res] if res is not None else None
+
+    async def get_pending_transaction_by_contains_multi(self, contains: List[str], ignore: str = None):
+        async with self.pool.acquire() as connection:
+            if ignore is not None:
+                res = await connection.fetchrow(
+                    'SELECT tx_hash FROM pending_transactions WHERE tx_hex LIKE ANY($1) AND tx_hash != $2 LIMIT 1',
+                    [f"%{contains}%" for contains in contains],
+                    ignore
+                )
+            else:
+                res = await connection.fetchrow(
+                    'SELECT tx_hash FROM pending_transactions WHERE tx_hex LIKE ANY($1) LIMIT 1',
+                    [f"%{contains}%" for contains in contains],
+                )
+        return await Transaction.from_hex(res['tx_hex']) if res is not None else None
 
     async def get_last_block(self) -> dict:
         async with self.pool.acquire() as connection:

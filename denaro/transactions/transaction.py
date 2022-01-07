@@ -79,6 +79,12 @@ class Transaction:
         tx = await Database.instance.get_transaction_by_contains_multi(check_inputs, sha256(self.hex()))
         return tx is None
 
+    async def _verify_double_spend_pending(self):
+        from .. import Database
+        check_inputs = [tx_input.tx_hash + bytes([tx_input.index]).hex() for tx_input in self.inputs]
+        tx = await Database.instance.get_pending_transaction_by_contains_multi(check_inputs, sha256(self.hex()))
+        return tx is None
+
     async def _fill_transaction_inputs(self, txs=None) -> None:
         from .. import Database
         check_inputs = [tx_input.tx_hash for tx_input in self.inputs if tx_input.transaction is None]
@@ -138,6 +144,9 @@ class Transaction:
             assert (self.fees * SMALLEST) % 1 == 0.0
             assert self.fees >= 0
         return input_amount >= output_amount
+
+    async def verify_pending(self):
+        return await self.verify() and await self._verify_double_spend_pending()
 
     def sign(self, private_keys: list = []):
         for private_key in private_keys:
