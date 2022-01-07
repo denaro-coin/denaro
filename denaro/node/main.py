@@ -292,14 +292,7 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
             txs = []
     previous_hash = split_block_content(block_content)[0]
     next_block_id = await db.get_next_block_id()
-    if id is not None:
-        if next_block_id < id:
-            await sync_blockchain(request.headers['Sender-Node'] if 'Sender-Node' in request.headers else None)
-            if await db.get_next_block_id() != id + 1:
-                return {'ok': False, 'error': 'Could not sync blockchain'}
-        if next_block_id > id:
-            return {'ok': False, 'error': 'Too old block'}
-    else:
+    if id is None:
         previous_block = await db.get_block(previous_hash)
         if previous_block is None:
             if 'Sender-Node' in request.headers:
@@ -309,6 +302,12 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
             else:
                 return {'ok': False, 'error': 'Previous hash not found'}
         id = previous_block['id']
+    if next_block_id < id:
+        await sync_blockchain(request.headers['Sender-Node'] if 'Sender-Node' in request.headers else None)
+        if await db.get_next_block_id() != id + 1:
+            return {'ok': False, 'error': 'Could not sync blockchain'}
+    if next_block_id > id:
+        return {'ok': False, 'error': 'Too old block'}
     final_transactions = []
     hashes = []
     for tx_hex in txs:
