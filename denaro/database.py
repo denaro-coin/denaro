@@ -51,7 +51,7 @@ class Database:
         if isinstance(transaction, CoinbaseTransaction):
             return False
         tx_hex = transaction.hex()
-        if await self.get_transaction(sha256(tx_hex), False) is not None or not await transaction.verify():
+        if not await transaction.verify():
             return False
         async with self.pool.acquire() as connection:
             await connection.fetch(
