@@ -24,6 +24,7 @@ db: Database = None
 NodesManager.init()
 nodes = NodesManager.get_nodes()
 started = False
+synced = False
 self_url = None
 
 print = ic
@@ -207,7 +208,7 @@ def read_root():
 
 @app.middleware("http")
 async def middleware(request: Request, call_next):
-    global started, self_url
+    global started, self_url, synced
     nodes = NodesManager.get_nodes()
     hostname = request.base_url.hostname
 
@@ -215,7 +216,9 @@ async def middleware(request: Request, call_next):
         NodesManager.add_node(request.headers['Sender-Node'])
 
     if nodes and not started or (ip_is_local(hostname) or hostname == 'localhost'):
-        if not started: await sync_blockchain()
+        if not synced:
+            await sync_blockchain()
+            synced = True
         try:
             node_url = nodes[0]
             #requests.get(f'{node_url}/add_node', {'url': })
