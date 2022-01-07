@@ -4,6 +4,7 @@ from os import environ
 from typing import Union
 
 import requests
+from asyncpg import UniqueViolationError
 from fastapi import FastAPI, Body
 from icecream import ic
 from requests import ReadTimeout
@@ -268,11 +269,14 @@ async def exception_handler(request: Request, e: Exception):
 @app.get("/push_tx")
 async def push_tx(tx_hex: str, background_tasks: BackgroundTasks):
     tx = await Transaction.from_hex(tx_hex)
-    if await db.add_pending_transaction(tx):
-        background_tasks.add_task(propagate, 'push_tx', {'tx_hex': tx_hex})
-        return {'ok': True, 'result': 'Transaction has been accepted'}
-    else:
-        return {'ok': False, 'error': 'Transaction has not been added'}
+    try:
+        if await db.add_pending_transaction(tx):
+            background_tasks.add_task(propagate, 'push_tx', {'tx_hex': tx_hex})
+            return {'ok': True, 'result': 'Transaction has been accepted'}
+        else:
+            return {'ok': False, 'error': 'Transaction has not been added'}
+    except UniqueViolationError:
+        return {'ok': False, 'error': 'Transaction already present'}
 
 
 @app.post("/push_block")
