@@ -127,7 +127,7 @@ async def _sync_blockchain(node_url: str = None):
         nodes = NodesManager.get_nodes()
         if not nodes:
             return
-        node_url = nodes[0]
+        node_url = random.choice(nodes)
     node_url = node_url.strip('/')
     _, last_block = await calculate_difficulty()
     i = await db.get_next_block_id()
