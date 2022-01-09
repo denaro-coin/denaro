@@ -293,13 +293,12 @@ async def create_block(block_content: str, transactions: List[Transaction], last
     await database.add_block(block_no, block_hash, address, random, difficulty, block_reward + fees, content_time)
     await database.add_transaction(coinbase_transaction, block_hash)
 
-    for transaction in transactions:
-        try:
-            await database.add_transaction(transaction, block_hash)
-        except Exception as e:
-            print(f'transaction {transaction.hash()} has not been added in block', e)
-            await database.delete_block(block_no)
-            return False
+    try:
+        await database.add_transactions(transactions, block_hash)
+    except Exception as e:
+        print(f'a transaction has not been added in block', e)
+        await database.delete_block(block_no)
+        return False
     await database.add_unspent_transactions_outputs(transactions + [coinbase_transaction])
     if transactions:
         await database.remove_pending_transactions_by_hash([transaction.hash() for transaction in transactions])
