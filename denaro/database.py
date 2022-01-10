@@ -107,6 +107,21 @@ class Database:
                 transaction.fees if isinstance(transaction, Transaction) else 0
             )
 
+    async def add_transactions(self, transactions: List[Union[Transaction, CoinbaseTransaction]], block_hash: str):
+        data = []
+        for transaction in transactions:
+            data.append((
+                block_hash,
+                transaction.hash(),
+                transaction.hex(),
+                [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs] if isinstance(transaction, Transaction) else [],
+                transaction.fees if isinstance(transaction, Transaction) else 0
+            ))
+        print(data)
+        async with self.pool.acquire() as connection:
+            stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, fees) VALUES ($1, $2, $3, $4, $5)')
+            await stmt.executemany(data)
+
     async def add_block(self, id: int, block_hash: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, int]):
         async with self.pool.acquire() as connection:
             stmt = await connection.prepare('INSERT INTO blocks (id, hash, address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)')
