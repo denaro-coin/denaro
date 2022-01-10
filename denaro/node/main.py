@@ -153,7 +153,7 @@ async def _sync_blockchain(node_url: str = None):
                     last_common_block = i = local_block['block']['id']
                     blocks_to_remove = await db.get_blocks(last_common_block + 1, 500)
                     transactions_to_remove = sum([block_to_remove['transactions'] for block_to_remove in blocks_to_remove], [])
-                    used_outputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions_to_remove], [])
+                    used_outputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in await Transaction.from_hex(transactions_to_remove)], [])
                     await db.delete_blocks(last_common_block)
                     await db.add_unspent_outputs(used_outputs)
                     for tx in transactions_to_remove:
