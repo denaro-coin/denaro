@@ -54,7 +54,7 @@ class Database:
         if not await transaction.verify_pending():
             return False
         async with self.pool.acquire() as connection:
-            await connection.fetch(
+            await connection.execute(
                 'INSERT INTO pending_transactions (tx_hash, tx_hex, inputs_addresses, fees) VALUES ($1, $2, $3, $4)',
                 sha256(tx_hex),
                 tx_hex,
@@ -65,11 +65,11 @@ class Database:
 
     async def remove_pending_transaction(self, tx_hash: str):
         async with self.pool.acquire() as connection:
-            await connection.fetch('DELETE FROM pending_transactions WHERE tx_hash = $1', tx_hash)
+            await connection.execute('DELETE FROM pending_transactions WHERE tx_hash = $1', tx_hash)
 
     async def remove_pending_transactions_by_hash(self, tx_hashes: List[str]):
         async with self.pool.acquire() as connection:
-            await connection.fetch('DELETE FROM pending_transactions WHERE tx_hash = ANY($1)', tx_hashes)
+            await connection.execute('DELETE FROM pending_transactions WHERE tx_hash = ANY($1)', tx_hashes)
 
     async def remove_pending_transactions(self):
         async with self.pool.acquire() as connection:
@@ -117,7 +117,6 @@ class Database:
                 [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs] if isinstance(transaction, Transaction) else [],
                 transaction.fees if isinstance(transaction, Transaction) else 0
             ))
-        print(data)
         async with self.pool.acquire() as connection:
             stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, fees) VALUES ($1, $2, $3, $4, $5)')
             await stmt.executemany(data)
