@@ -294,16 +294,15 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
         previous_block = await db.get_block(previous_hash)
         if previous_block is None:
             if 'Sender-Node' in request.headers:
-                await sync_blockchain(request.headers['Sender-Node'])
+                background_tasks.add_task(sync_blockchain, request.headers['Sender-Node'])
                 return {'ok': False,
                         'error': 'Previous hash not found, had to sync according to sender node, block may have been accepted'}
             else:
                 return {'ok': False, 'error': 'Previous hash not found'}
         id = previous_block['id'] + 1
     if next_block_id < id:
-        await sync_blockchain(request.headers['Sender-Node'] if 'Sender-Node' in request.headers else None)
-        if await db.get_next_block_id() != id + 1:
-            return {'ok': False, 'error': 'Could not sync blockchain'}
+        background_tasks.add_task(sync_blockchain, request.headers['Sender-Node'] if 'Sender-Node' in request.headers else None)
+        return {'ok': False, 'error': 'Blocks missing, had to sync according to sender node, block may have been accepted'}
     if next_block_id > id:
         return {'ok': False, 'error': 'Too old block'}
     final_transactions = []
@@ -317,20 +316,13 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
         pending_transactions = await db.get_pending_transactions_by_hash(hashes)
         if len(pending_transactions) < len(hashes):  # one or more tx not found
             if 'Sender-Node' in request.headers:
-                await sync_blockchain(request.headers['Sender-Node'])
+                background_tasks.add_task(sync_blockchain, request.headers['Sender-Node'])
                 return {'ok': False,
                         'error': 'Transaction hash not found, had to sync according to sender node, block may have been accepted'}
             else:
                 return {'ok': False, 'error': 'Transaction hash not found'}
         final_transactions.extend(pending_transactions)
     if not await create_block(block_content, final_transactions):
-        """if (True or await check_block_is_valid(block_content)) and id >= next_block_id and (request and 'Sender-Node' in request.headers): # fixme
-            _, last_block = await calculate_difficulty()
-            if previous_hash != last_block['hash']:
-                sender_node = request.headers['Sender-Node']
-                #await db.delete_block(next_block_id - 1)
-                await sync_blockchain(sender_node)
-                return {'ok': False, 'error': 'Blockchain has been resynchronized according to sender node, block may have been accepted'}"""
         return {'ok': False}
     background_tasks.add_task(propagate, 'push_block', {
         'block_content': block_content,
