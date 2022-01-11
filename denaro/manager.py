@@ -1,5 +1,4 @@
 import hashlib
-from datetime import datetime, timezone
 from decimal import Decimal
 from io import BytesIO
 from math import ceil, floor, log
@@ -8,7 +7,7 @@ from typing import Tuple, List, Union
 from icecream import ic
 
 from . import Database
-from .constants import MAX_SUPPLY, ENDIAN
+from .constants import MAX_SUPPLY, ENDIAN, MAX_BLOCK_SIZE_HEX
 from .helpers import sha256, timestamp, bytes_to_string, string_to_bytes
 from .transactions import CoinbaseTransaction, Transaction
 
@@ -163,6 +162,10 @@ def get_transactions_merkle_tree(transactions: List[Union[Transaction, str]]):
     return hashlib.sha256(_bytes).hexdigest()
 
 
+def get_transactions_size(transactions: List[Transaction]):
+    return sum(len(transaction.hex()) for transaction in transactions)
+
+
 def block_to_bytes(last_block_hash: str, block: dict) -> bytes:
     address_bytes = string_to_bytes(block['address'])
     version = bytes([])
@@ -227,10 +230,10 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         return False
 
     database: Database = Database.instance
-    if len(transactions) > 1000:
-        print('more than 1000 transactions')
-        return False
     transactions = [tx for tx in transactions if isinstance(tx, Transaction)]
+    if get_transactions_size(transactions) > MAX_BLOCK_SIZE_HEX:
+        print('block is too big')
+        return False
 
     if transactions:
         check_inputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions], [])

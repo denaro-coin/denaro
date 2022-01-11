@@ -6,7 +6,7 @@ from fastecdsa import keys
 from icecream import ic
 
 from . import TransactionInput, TransactionOutput
-from ..constants import ENDIAN, SMALLEST, MAX_TX_HEX_LENGTH, CURVE
+from ..constants import ENDIAN, SMALLEST, CURVE
 from ..helpers import point_to_string, bytes_to_string, sha256
 
 print = ic
@@ -112,10 +112,6 @@ class Transaction:
         return all(tx_output.verify() for tx_output in self.outputs)
 
     async def verify(self, check_double_spend: bool = True) -> bool:
-        if len(self.hex()) > MAX_TX_HEX_LENGTH:
-            print(f'too long ({len(self.hex())})')
-            return False
-
         if not self._verify_double_spend_same_transaction():
             print('double spend inside same transaction')
             return False
