@@ -6,6 +6,7 @@ from fastecdsa import keys
 from icecream import ic
 
 from . import TransactionInput, TransactionOutput
+from .coinbase_transaction import CoinbaseTransaction
 from ..constants import ENDIAN, SMALLEST, CURVE
 from ..helpers import point_to_string, bytes_to_string, sha256
 
@@ -185,7 +186,6 @@ class Transaction:
         specifier = int.from_bytes(tx_bytes.read(1), ENDIAN)
         if specifier == 36:
             assert len(inputs) == 1 and len(outputs) == 1
-            from . import CoinbaseTransaction
             return CoinbaseTransaction(inputs[0].tx_hash, outputs[0].address, outputs[0].amount)
         else:
             if specifier == 1:
