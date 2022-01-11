@@ -49,24 +49,16 @@ def create_transaction(private_keys, receiving_address, amount):
         raise Exception(f"Error: You don\'t have enough funds")
 
     most_amount = sorted(inputs, key=lambda item: item.amount, reverse=True)
-    inputs_count = 24
 
-    transaction_inputs = most_amount[-inputs_count:]
-    transaction_inputs.reverse()
+    transaction_inputs = []
 
-    for i in range(-inputs_count-1, -len(inputs)-1, -1):
+    for i, tx_input in enumerate(most_amount):
+        transaction_inputs.append(tx_input)
         transaction_amount = sum(input.amount for input in transaction_inputs)
-        if transaction_amount > amount:
+        if transaction_amount >= amount:
             break
 
-        transaction_inputs.pop(0)
-        transaction_inputs.append(most_amount[i])
-
     transaction_amount = sum(input.amount for input in transaction_inputs)
-
-    if transaction_amount < amount:
-        assert sum(input.amount for input in most_amount[:inputs_count]) == transaction_amount
-        raise Exception(f"Error: You can send max {transaction_amount} denari in a single transaction due to blockchain limits.")
 
     transaction = Transaction(transaction_inputs, [TransactionOutput(receiving_address, amount=amount)])
     if transaction_amount > amount:
