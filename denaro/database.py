@@ -282,11 +282,10 @@ class Database:
         inputs = []
         index = {}
         for tx in txs:
-            used_outputs = []
             tx_hash = sha256(tx['tx_hex'])
             tx = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
             for i, tx_output in enumerate(tx.outputs):
-                if tx_output.address in addresses and i not in used_outputs:
+                if tx_output.address in addresses:
                     tx_input = TransactionInput(tx_hash, i)
                     tx_input.amount = tx_output.amount
                     tx_input.transaction = tx
