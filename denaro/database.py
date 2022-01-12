@@ -275,12 +275,10 @@ class Database:
         search = ['%'+point_to_bytes(string_to_point(address), address_format).hex()+'%' for address_format in list(AddressFormat)]
         addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE tx_hex LIKE ANY($1)', search)
-            spender_txs = await connection.fetch("SELECT tx_hex FROM transactions WHERE $1 && inputs_addresses", addresses)
-            if check_pending_txs:
-                spender_txs += await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses)
+            txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', search)
+            spender_txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses) if check_pending_txs else []
         inputs = []
-        index = {}
+        outputs = []
         for tx in txs:
             tx_hash = sha256(tx['tx_hex'])
             tx = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
@@ -289,18 +287,19 @@ class Database:
                     tx_input = TransactionInput(tx_hash, i)
                     tx_input.amount = tx_output.amount
                     tx_input.transaction = tx
-                    index[tx_hash + str(i)] = tx_input
+                    outputs.append((tx_hash, i))
                     inputs.append(tx_input)
-        used_outputs = []
         for spender_tx in spender_txs:
             spender_tx = await Transaction.from_hex(spender_tx['tx_hex'], check_signatures=False)
             for tx_input in spender_tx.inputs:
-                if tx_input.tx_hash + str(tx_input.index) in index:
-                    used_outputs.append(tx_input.tx_hash + str(tx_input.index))
+                if (tx_input.tx_hash, tx_input.index) in outputs:
+                    outputs.remove((tx_input.tx_hash, tx_input.index))
+
+        unspent_outputs = await self.get_unspent_outputs(outputs)
 
         final = []
         for tx_input in inputs:
-            if tx_input.tx_hash + str(tx_input.index) not in used_outputs:
+            if (tx_input.tx_hash, tx_input.index) in unspent_outputs:
                 final.append(tx_input)
 
         return final
