@@ -36,8 +36,7 @@ class TransactionInput:
 
     def sign(self, tx_hex: str, private_key: int = None):
         private_key = private_key if private_key is not None else self.private_key
-        # print('signing with', point_to_string(keys.get_public_key(private_key, CURVE)))
-        self.signed = ecdsa.sign(tx_hex, private_key)
+        self.signed = ecdsa.sign(bytes.fromhex(tx_hex), private_key)
 
     async def get_public_key(self):
         return (await self.get_related_output()).public_key
@@ -55,7 +54,9 @@ class TransactionInput:
             return False
         # print('verifying with', point_to_string(public_key))
 
-        return ecdsa.verify(self.signed, input_tx, public_key, CURVE)
+        return \
+            ecdsa.verify(self.signed, input_tx, public_key, CURVE) or \
+            ecdsa.verify(self.signed, bytes.fromhex(input_tx), public_key, CURVE)
 
     @property
     def as_dict(self):
