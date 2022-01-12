@@ -36,7 +36,7 @@ class TransactionInput:
 
     def sign(self, tx_hex: str, private_key: int = None):
         private_key = private_key if private_key is not None else self.private_key
-        self.signed = ecdsa.sign(bytes.fromhex(tx_hex), private_key)
+        self.signed = ecdsa.sign(bytes.fromhex(tx_hex),      private_key)
 
     async def get_public_key(self):
         return (await self.get_related_output()).public_key
