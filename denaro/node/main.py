@@ -100,6 +100,7 @@ async def create_blocks(blocks: list):
             if isinstance(tx, CoinbaseTransaction):
                 txs.remove(tx)
                 break
+        merkle_tree_txs = [tx.hex() for tx in merkle_tree_txs]
         block['merkle_tree'] = get_transactions_merkle_tree(txs) if i > 22500 else get_transactions_merkle_tree_ordered(
             txs)
         block_content = block_to_bytes(last_block['hash'], block)
