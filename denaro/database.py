@@ -261,14 +261,14 @@ class Database:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE true')
             transactions = {sha256(tx['tx_hex']): await Transaction.from_hex(tx['tx_hex'], False) for tx in txs}
-            outputs = sum([[transaction.hash() + bytes([index]).hex() for index in range(len(transaction.outputs))] for transaction in transactions.values()], [])
+            outputs = sum([[(transaction.hash(), index) for index in range(len(transaction.outputs))] for transaction in transactions.values()], [])
             for tx_hash, transaction in transactions.items():
                 if isinstance(transaction, CoinbaseTransaction):
                     continue
-                for output in outputs.copy():
-                    if output in tx_hash:
-                        outputs.remove(output)
-            return [(output[:64], int(output[64:], 16)) for output in outputs]
+                for tx_input in transaction.inputs:
+                    if (tx_input.tx_hash, tx_input.index) in outputs:
+                        outputs.remove((tx_input.tx_hash, tx_input.index))
+            return outputs
 
     async def get_spendable_outputs(self, address: str, check_pending_txs: bool = False) -> List[TransactionInput]:
         point = string_to_point(address)
