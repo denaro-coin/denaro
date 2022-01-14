@@ -1,24 +1,26 @@
 from decimal import Decimal
 from typing import Tuple
 
-from fastecdsa import ecdsa, keys
+from fastecdsa import ecdsa
 
 from ..constants import CURVE, ENDIAN
 from ..helpers import point_to_string
 
 
 class TransactionInput:
-    transaction = None
     public_key = None
-    private_key = None
 
     signed: Tuple[int, int] = None
     amount: Decimal = None
 
-    def __init__(self, input_tx_hash: str, index: int, private_key: int = None):
+    def __init__(self, input_tx_hash: str, index: int, private_key: int = None, transaction=None, amount: Decimal = None):
         self.tx_hash = input_tx_hash
         self.index = index
         self.private_key = private_key
+        self.transaction = transaction
+        self.amount = amount
+        if transaction is not None and amount is None:
+            self.get_related_output()
 
     async def get_transaction(self):
         if self.transaction is None:

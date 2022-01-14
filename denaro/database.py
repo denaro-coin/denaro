@@ -284,9 +284,7 @@ class Database:
             tx = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
             for i, tx_output in enumerate(tx.outputs):
                 if tx_output.address in addresses:
-                    tx_input = TransactionInput(tx_hash, i)
-                    tx_input.amount = tx_output.amount
-                    tx_input.transaction = tx
+                    tx_input = TransactionInput(tx_hash, i, transaction=tx, amount=tx_output.amount)
                     outputs.append((tx_hash, i))
                     inputs.append(tx_input)
         for spender_tx in spender_txs:
