@@ -28,6 +28,7 @@ class NodesManager:
     def is_node_working(node: str):
         try:
             r = requests.get(node, timeout=5)
+            r.json()
             return True
         except:
             return False
