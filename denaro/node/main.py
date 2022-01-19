@@ -132,9 +132,9 @@ async def _sync_blockchain(node_url: str = None):
     _, last_block = await calculate_difficulty()
     i = await db.get_next_block_id()
     node_interface = NodeInterface(node_url)
+    local_cache = None
     if last_block != {} and last_block['id'] > 500:
         remote_last_block = node_interface.get_block(i-1)['block']
-        local_cache = None
         if remote_last_block['hash'] != last_block['hash']:
             print(remote_last_block['hash'])
             offset, limit = i - 500, 500
