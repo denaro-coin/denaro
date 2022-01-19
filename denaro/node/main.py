@@ -107,8 +107,8 @@ async def create_blocks(blocks: list):
         if i <= 22500:
             from itertools import permutations
             for l in permutations(hex_txs):
-                txs = list(l)
-                block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
+                _hex_txs = list(l)
+                block['merkle_tree'] = get_transactions_merkle_tree_ordered(_hex_txs)
                 block_content = block_to_bytes(last_block['hash'], block)
                 if sha256(block_content) == block['hash']:
                     break
