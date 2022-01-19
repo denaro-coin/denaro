@@ -95,19 +95,18 @@ async def create_blocks(blocks: list):
     for block_info in blocks:
         block = block_info['block']
         txs_hex = block_info['transactions']
-        txs = merkle_tree_txs = [await Transaction.from_hex(tx) for tx in txs_hex]
+        txs = [await Transaction.from_hex(tx) for tx in txs_hex]
         for tx in txs:
             if isinstance(tx, CoinbaseTransaction):
                 txs.remove(tx)
                 break
-        merkle_tree_txs = [tx.hex() for tx in merkle_tree_txs]
-        block['merkle_tree'] = get_transactions_merkle_tree(txs) if i > 22500 else get_transactions_merkle_tree_ordered(
-            txs)
+        hex_txs = [tx.hex() for tx in txs]
+        block['merkle_tree'] = get_transactions_merkle_tree(hex_txs) if i > 22500 else get_transactions_merkle_tree_ordered(hex_txs)
         block_content = block_to_bytes(last_block['hash'], block)
 
         if i <= 22500:
             from itertools import permutations
-            for l in permutations(merkle_tree_txs):
+            for l in permutations(hex_txs):
                 txs = list(l)
                 block['merkle_tree'] = get_transactions_merkle_tree_ordered(txs)
                 block_content = block_to_bytes(last_block['hash'], block)
