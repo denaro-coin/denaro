@@ -104,7 +104,7 @@ async def create_blocks(blocks: list):
         block['merkle_tree'] = get_transactions_merkle_tree(hex_txs) if i > 22500 else get_transactions_merkle_tree_ordered(hex_txs)
         block_content = block_to_bytes(last_block['hash'], block)
 
-        if i <= 22500 and sha256(block_content) != block['hash']:
+        if i <= 22500 and sha256(block_content) != block['hash'] and i != 17972:
             from itertools import permutations
             random.shuffle(hex_txs)
             for l in permutations(hex_txs):
