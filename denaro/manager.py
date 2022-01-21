@@ -204,12 +204,17 @@ def split_block_content(block_content: str):
 async def check_block(block_content: str, transactions: List[Transaction], mining_info: tuple = None):
     if mining_info is None:
         mining_info = await calculate_difficulty()
+    difficulty, last_block = mining_info
+    block_no = last_block['id'] + 1 if last_block != {} else 1
     previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
-    if not await check_block_is_valid(block_content, mining_info):
+    if block_no == 17972:
+        if address != 'dbda85e237b90aa669da00f2859e0010b0a62e0fb6e55ba6ca3ce8a961a60c64410bcfb6a038310a3bb6f1a4aaa2de1192cc10e380a774bb6f9c6ca8547f11ab' or \
+           content_time != 1638463765 or random != 17660081:
+            return False
+    elif not await check_block_is_valid(block_content, mining_info):
         print('block not valid')
         return False
 
-    difficulty, last_block = mining_info
 
     content_time = int(content_time)
     if last_block != {} and previous_hash != last_block['hash']:
@@ -260,11 +265,11 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
             else:
                 used_inputs += tx_inputs
 
-    block_no = last_block['id'] + 1 if last_block != {} else 1
-
     transactions_merkle_tree = get_transactions_merkle_tree(
         transactions) if block_no >= 22500 else get_transactions_merkle_tree_ordered(transactions)
     if merkle_tree != transactions_merkle_tree:
+        if block_no == 17972 and get_transactions_merkle_tree(transactions) == 'cb52390983d1902bf7d0eb96ed3f8adc359d34b6617dcccd2b610349e0ee8d15':
+            return True
         _print('merkle tree does not match')
         print(transactions)
         print(merkle_tree)
