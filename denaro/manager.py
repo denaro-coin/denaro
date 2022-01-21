@@ -290,8 +290,8 @@ async def create_block(block_content: str, transactions: List[Transaction], last
         return False
 
     database: Database = Database.instance
-    block_hash = sha256(block_content)
     block_no = last_block['id'] + 1 if last_block != {} else 1
+    block_hash = sha256(block_content) if block_no != 17972 else '37cb1a0522c039330775e07d824c94e0422dbfb2dba6dcd421f4dc9f11601672'
     previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
 
     fees = sum(transaction.fees for transaction in transactions)
