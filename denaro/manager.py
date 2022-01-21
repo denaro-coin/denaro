@@ -245,6 +245,7 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         unspent_outputs = await database.get_unspent_outputs(check_inputs)
         if len(unspent_outputs) != len(check_inputs):
             print('double spend in block')
+            print(set(check_inputs) - set(unspent_outputs))
             return False
 
         input_txs_hash = sum([[tx_input.tx_hash for tx_input in transaction.inputs] for transaction in transactions], [])
