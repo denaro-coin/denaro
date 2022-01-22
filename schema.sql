@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS blocks (
 CREATE TABLE IF NOT EXISTS transactions (
 	block_hash CHAR(64) NOT NULL REFERENCES blocks(hash) ON DELETE CASCADE,
 	tx_hash CHAR(64) UNIQUE,
-	tx_hex VARCHAR(2048) UNIQUE,
+	tx_hex TEXT UNIQUE,
 	inputs_addresses TEXT[],
 	fees NUMERIC(14, 6) NOT NULL
 );
