@@ -110,7 +110,7 @@ class Transaction:
         return True
 
     def _verify_outputs(self):
-        return all(tx_output.verify() for tx_output in self.outputs)
+        return self.outputs and all(tx_output.verify() for tx_output in self.outputs)
 
     async def verify(self, check_double_spend: bool = True) -> bool:
         if not self._verify_double_spend_same_transaction():
