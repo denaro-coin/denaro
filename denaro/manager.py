@@ -256,7 +256,7 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
     used_inputs = []
     for transaction in transactions:
         if not await transaction.verify(check_double_spend=False):
-            print('transaction has been not verified')
+            print(f'transaction {transaction.hash()} has been not verified')
             return False
         else:
             tx_inputs = [f"{tx_input.tx_hash}{tx_input.index}" for tx_input in transaction.inputs]
