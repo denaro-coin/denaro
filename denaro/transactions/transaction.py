@@ -19,7 +19,8 @@ class Transaction:
     block_hash: str = None
 
     def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput], message: bytes = None):
-        assert len(inputs) < 256
+        if len(inputs) >= 256:
+            raise Exception(f'You can spend max 256 inputs in a single transactions, not {len(inputs)}')
         self.inputs = inputs
         self.outputs = outputs
         self.message = message
