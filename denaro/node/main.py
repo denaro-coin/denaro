@@ -222,7 +222,7 @@ async def middleware(request: Request, call_next):
         try:
             node_url = nodes[0]
             #requests.get(f'{node_url}/add_node', {'url': })
-            r = requests.get(f'{node_url}/get_nodes')
+            r = NodesManager.client.get(f'{node_url}/get_nodes')
             j = r.json()
             nodes.extend(j['result'])
             NodesManager.sync()
@@ -375,7 +375,7 @@ async def add_node(url: str, background_tasks: BackgroundTasks):
         return {'ok': False, 'error': 'Node already present'}
     else:
         try:
-            assert NodesManager.is_node_working(url)
+            assert await NodesManager.is_node_working(url)
             background_tasks.add_task(propagate, 'add_node', {'url': url}, url)
             NodesManager.add_node(url)
             return {'ok': True, 'result': 'Node added'}

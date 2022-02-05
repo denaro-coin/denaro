@@ -2,6 +2,8 @@ import json
 import os
 from os.path import dirname, exists
 
+from eventlet.timeout import Timeout
+import httpx as httpx
 import pickledb
 import requests
 
@@ -15,6 +17,9 @@ class NodesManager:
     nodes: list = None
     db = db
 
+    timeout = httpx.Timeout(1.0, connect=1.0, read=1.0)
+    client = httpx.Client(timeout=timeout)
+
     @staticmethod
     def init():
         NodesManager.db._loaddb()
@@ -25,9 +30,10 @@ class NodesManager:
         NodesManager.db.set('nodes', NodesManager.nodes)
 
     @staticmethod
-    def is_node_working(node: str):
+    async def is_node_working(node: str):
         try:
-            r = requests.get(node, timeout=5)
+            with Timeout(5, False):
+                r = NodesManager.client.get(node)
             r.json()
             return True
         except:
