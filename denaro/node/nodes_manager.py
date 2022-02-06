@@ -32,9 +32,12 @@ class NodesManager:
     @staticmethod
     async def is_node_working(node: str):
         try:
-            with Timeout(5, False):
-                r = NodesManager.client.get(node)
-            r.json()
+            client = httpx.AsyncClient()
+            async with client.stream('GET', node) as response:
+                async for chunk in response.aiter_text():
+                    res = chunk
+                    break
+            json.loads(res)
             return True
         except:
             return False
