@@ -4,8 +4,8 @@ denaro
 **denaro**, _'money' in italian_, is a cryptocurrency written in Python.  
 Maximum supply is 30.062.005.  
 Maximum decimal digits count is 6.  
-Blocks are generated every ~3 minutes, with a limit of 1000 transactions per block, and a limit of 2048 bytes per transaction.  
-This makes possible to handle ~5 transactions per second, with a maximum block size of 2000kb.
+Blocks are generated every ~3 minutes, with a size limit of 2MB per block.  
+Assuming an average transaction to be composed by 5 inputs and 2 outputs, that are 250 bytes, a block can contain ~8300 transactions, which means ~40 transactions per second.    
 
 ## Setup with Docker
 + Build the base image with `make build`
@@ -44,10 +44,9 @@ Node should now sync the blockchain and start working
 
 denaro uses a PoW system.  
 
-Block hash is the sha256 of raw bytes of `previous_hash, public_key, merkle_tree, timestamp, difficulty, random`, for example `387389eb614db0e3ada0af248f2f0adac12db35963f4bbdd71ef14914e8ade81dbda85e237b90aa669da00f2859e0010b0a62e0fb6e55ba6ca3ce8a961a60c64410bcfb6a038310a3bb6f1a4aaa2de1192cc10e380a774bb6f9c6ca8547f11abe3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b8556662796132007d521100`  
-The derived sha256 must start with the last `difficulty` characters (hex) of the previous mined block.  
-`random` must be at most 4 bytes long.  
-`difficulty` can also have decimal digits (in block it is in fact `difficulty * 10`, 2 bytes long), that will restrict the `difficulty + 1`th character of the derived sha to have a limited set of values.  
+Block hash algorithm is sha256.  
+The block sha256 hash must start with the last `difficulty` hex characters of the previously mined block.    
+`difficulty` can also have decimal digits, that will restrict the `difficulty + 1`th character of the derived sha to have a limited set of values.    
 ```python
 from math import ceil
 
