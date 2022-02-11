@@ -74,9 +74,9 @@ async def propagate(path: str, args: dict, ignore=None):
             continue
         try:
             if path == 'push_block':
-                r = await NodesManager.request(f'{node_url}/{path}', method='POST', json=args, headers={'Sender-Node': self_url})
+                r = await NodesManager.request(f'{node_url}/{path}', method='POST', json=args, headers={'Sender-Node': self_url or ''})
             else:
-                r = await NodesManager.request(f'{node_url}/{path}', params=args, headers={'Sender-Node': self_url})
+                r = await NodesManager.request(f'{node_url}/{path}', params=args, headers={'Sender-Node': self_url or ''})
             print('node response: ', r)
         except Exception as e:
             print(e)
