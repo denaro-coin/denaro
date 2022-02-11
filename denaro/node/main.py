@@ -352,13 +352,13 @@ async def get_mining_info(background_tasks: BackgroundTasks):
 
 
 @app.get("/get_address_info")
-async def get_address_info(address: str):
+async def get_address_info(address: str, transactions_count_limit: int = 5):
     outputs = await db.get_spendable_outputs(address)
     balance = sum(output.amount for output in outputs)
     return {'ok': True, 'result': {
         'balance': balance,
-        'spendable_outputs': [{'amount': output.amount, 'tx_hash': output.tx_hash, 'index': output.index} for output in
-                              outputs]
+        'spendable_outputs': [{'amount': output.amount, 'tx_hash': output.tx_hash, 'index': output.index} for output in outputs],
+        'transactions': [await transaction_to_json(tx) for tx in await db.get_address_transactions(address, limit=transactions_count_limit)]
     }}
 
 
