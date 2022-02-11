@@ -7,13 +7,11 @@ import pickledb
 import requests
 from fastecdsa import keys, curve
 
-from denaro.wallet.utils import create_transaction
-
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path + "/../..")
 
+from utils import create_transaction
 from denaro import Database, node
-from denaro.transactions import Transaction, TransactionOutput
 
 from denaro.constants import CURVE
 from denaro.helpers import point_to_string, sha256
