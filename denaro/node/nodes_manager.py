@@ -72,3 +72,11 @@ class NodeInterface:
         r = requests.get(f'{self.url}/get_blocks', {'offset': offset, 'limit': limit}, timeout=10)
         res = r.json()
         return res['result']
+
+    async def request(self, path: str, data: dict, sender_node: str):
+        headers = {'Sender-Node': sender_node}
+        if path in ('push_block', 'push_tx'):
+            r = await NodesManager.request(f'{self.url}/{path}', method='POST', json=data, headers=headers)
+        else:
+            r = await NodesManager.request(f'{self.url}/{path}', params=data, headers=headers)
+        return r
