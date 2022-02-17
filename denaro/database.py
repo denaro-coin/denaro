@@ -47,11 +47,11 @@ class Database:
     def connection(self):
         return await self.pool.acquire()"""
 
-    async def add_pending_transaction(self, transaction: Transaction):
+    async def add_pending_transaction(self, transaction: Transaction, verify: bool = True):
         if isinstance(transaction, CoinbaseTransaction):
             return False
         tx_hex = transaction.hex()
-        if not await transaction.verify_pending():
+        if verify and not await transaction.verify_pending():
             return False
         async with self.pool.acquire() as connection:
             await connection.execute(
