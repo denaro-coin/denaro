@@ -263,7 +263,10 @@ async def exception_handler(request: Request, e: Exception):
 
 
 @app.get("/push_tx")
-async def push_tx(tx_hex: str, background_tasks: BackgroundTasks):
+@app.post("/push_tx")
+async def push_tx(background_tasks: BackgroundTasks, tx_hex: str = None, body=Body(False)):
+    if body and tx_hex is None:
+        tx_hex = body['tx_hex']
     tx = await Transaction.from_hex(tx_hex)
     try:
         if await db.add_pending_transaction(tx):
