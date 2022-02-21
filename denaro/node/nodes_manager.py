@@ -4,7 +4,6 @@ from os.path import dirname, exists
 
 import httpx
 import pickledb
-import requests
 
 path = dirname(os.path.realpath(__file__)) + '/nodes.json'
 if not exists(path):
@@ -32,9 +31,13 @@ class NodesManager:
     @staticmethod
     async def request(url: str, method: str = 'GET', **kwargs):
         async with NodesManager.async_client.stream(method, url, **kwargs) as response:
+            i = 0
+            res = ''
             async for chunk in response.aiter_text():
-                res = chunk
-                break
+                res += chunk
+                if i > 100:
+                    break
+                i += 1
         return json.loads(res)
 
     @staticmethod
@@ -64,20 +67,18 @@ class NodeInterface:
         self.url = url.strip('/')
         self.base_url = self.url.replace('http://', '', 1).replace('https://', '', 1)
 
-    def get_block(self, block_no: int):
-        r = requests.get(f'{self.url}/get_block', {'block': block_no}, timeout=10)
-        res = r.json()
+    async def get_block(self, block_no: int):
+        res = await self.request(f'get_block', {'block': block_no})
         return res['result']
 
-    def get_blocks(self, offset: int, limit: int):
-        r = requests.get(f'{self.url}/get_blocks', {'offset': offset, 'limit': limit}, timeout=10)
-        res = r.json()
+    async def get_blocks(self, offset: int, limit: int):
+        res = await self.request(f'get_blocks', {'offset': offset, 'limit': limit})
         return res['result']
 
-    async def request(self, path: str, data: dict, sender_node: str):
+    async def request(self, path: str, data: dict, sender_node: str = ''):
         headers = {'Sender-Node': sender_node}
         if path in ('push_block', 'push_tx'):
-            r = await NodesManager.request(f'{self.url}/{path}', method='POST', json=data, headers=headers)
+            r = await NodesManager.request(f'{self.url}/{path}', method='POST', json=data, headers=headers, timeout=10)
         else:
-            r = await NodesManager.request(f'{self.url}/{path}', params=data, headers=headers)
+            r = await NodesManager.request(f'{self.url}/{path}', params=data, headers=headers, timeout=10)
         return r

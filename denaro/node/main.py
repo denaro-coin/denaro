@@ -10,7 +10,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse
 
 from denaro.helpers import timestamp, sha256, transaction_to_json
-from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, check_block_is_valid, \
+from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, \
     split_block_content, calculate_difficulty, clear_pending_transactions, block_to_bytes, get_transactions_merkle_tree_ordered
 from denaro.node.nodes_manager import NodesManager, NodeInterface
 from denaro.node.utils import ip_is_local
@@ -95,11 +95,11 @@ async def _sync_blockchain(node_url: str = None):
     node_interface = NodeInterface(node_url)
     local_cache = None
     if last_block != {} and last_block['id'] > 500:
-        remote_last_block = node_interface.get_block(i-1)['block']
+        remote_last_block = (await node_interface.get_block(i-1))['block']
         if remote_last_block['hash'] != last_block['hash']:
             print(remote_last_block['hash'])
             offset, limit = i - 500, 500
-            remote_blocks = node_interface.get_blocks(i-500, 500)
+            remote_blocks = await node_interface.get_blocks(i-500, 500)
             local_blocks = await db.get_blocks(offset, limit)
             local_blocks.reverse()
             remote_blocks.reverse()
@@ -127,7 +127,7 @@ async def _sync_blockchain(node_url: str = None):
     while True:
         i = await db.get_next_block_id()
         try:
-            blocks = node_interface.get_blocks(i, limit)
+            blocks = await node_interface.get_blocks(i, limit)
         except Exception as e:
             print(e)
             #NodesManager.get_nodes().remove(node_url)
@@ -183,8 +183,7 @@ async def middleware(request: Request, call_next):
         try:
             node_url = nodes[0]
             #requests.get(f'{node_url}/add_node', {'url': })
-            r = NodesManager.client.get(f'{node_url}/get_nodes')
-            j = r.json()
+            j = await NodesManager.request(f'{node_url}/get_nodes')
             nodes.extend(j['result'])
             NodesManager.sync()
         except:
