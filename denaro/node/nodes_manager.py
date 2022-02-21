@@ -62,6 +62,7 @@ class NodesManager:
 class NodeInterface:
     def __init__(self, url: str):
         self.url = url.strip('/')
+        self.base_url = self.url.replace('http://', '', 1).replace('https://', '', 1)
 
     def get_block(self, block_no: int):
         r = requests.get(f'{self.url}/get_block', {'block': block_no}, timeout=10)
