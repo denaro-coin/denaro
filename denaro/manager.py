@@ -298,6 +298,9 @@ async def create_block(block_content: str, transactions: List[Transaction], last
 
     block_reward = get_block_reward(block_no)
     coinbase_transaction = CoinbaseTransaction(block_hash, address, block_reward + fees)
+    if block_no > 35000:
+        if not coinbase_transaction.outputs[0].verify():
+            return False
 
     await database.add_block(block_no, block_hash, address, random, difficulty, block_reward + fees, content_time)
     await database.add_transaction(coinbase_transaction, block_hash)
