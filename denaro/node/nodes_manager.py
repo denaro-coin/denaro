@@ -35,7 +35,7 @@ class NodesManager:
             res = ''
             async for chunk in response.aiter_text():
                 res += chunk
-                if i > 100:
+                if i > 1000:
                     break
                 i += 1
         return json.loads(res)
