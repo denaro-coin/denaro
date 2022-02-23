@@ -18,24 +18,31 @@ class Transaction:
     fees: Decimal = None
     block_hash: str = None
 
-    def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput], message: bytes = None):
+    def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput], message: bytes = None, version: int = None):
         if len(inputs) >= 256:
-            raise Exception(f'You can spend max 256 inputs in a single transactions, not {len(inputs)}')
+            raise Exception(f'You can spend max 255 inputs in a single transactions, not {len(inputs)}')
+        if len(outputs) >= 256:
+            raise Exception(f'You can have max 255 outputs in a single transactions, not {len(inputs)}')
         self.inputs = inputs
         self.outputs = outputs
         self.message = message
+        if version is None:
+            if all(len(tx_output.address_bytes) == 64 for tx_output in outputs):
+                version = 1
+            elif all(len(tx_output.address_bytes) == 33 for tx_output in outputs):
+                version = 3
+            else:
+                raise NotImplementedError()
+        if version > 3:
+            raise NotImplementedError()
+        self.version = version
 
     def hex(self, full: bool = True):
         inputs, outputs = self.inputs, self.outputs
         hex_inputs = ''.join(tx_input.tobytes().hex() for tx_input in inputs)
         hex_outputs = ''.join(tx_output.tobytes().hex() for tx_output in outputs)
 
-        if all(len(tx_output.address_bytes) == 64 for tx_output in outputs):
-            version = 1
-        elif all(len(tx_output.address_bytes) == 33 for tx_output in outputs):
-            version = 2
-        else:
-            raise NotImplementedError()
+        version = self.version
 
         self._hex = ''.join([
             version.to_bytes(1, ENDIAN).hex(),
@@ -45,12 +52,18 @@ class Transaction:
             hex_outputs
         ])
 
-        if not full:
+        if not full and (version <= 2 or self.message is None):
             return self._hex
 
         if self.message is not None:
-            self._hex += bytes([1, len(self.message)]).hex()
+            if version <= 2:
+                self._hex += bytes([1, len(self.message)]).hex()
+            else:
+                self._hex += bytes([1]).hex()
+                self._hex += (len(self.message)).to_bytes(2, ENDIAN).hex()
             self._hex += self.message.hex()
+            if not full:
+                return self._hex
         else:
             self._hex += (0).to_bytes(1, ENDIAN).hex()
 
@@ -162,7 +175,7 @@ class Transaction:
     async def from_hex(hexstring: str, check_signatures: bool = True):
         tx_bytes = BytesIO(bytes.fromhex(hexstring))
         version = int.from_bytes(tx_bytes.read(1), ENDIAN)
-        if version > 2:
+        if version > 3:
             raise NotImplementedError()
 
         inputs_count = int.from_bytes(tx_bytes.read(1), ENDIAN)
@@ -190,7 +203,7 @@ class Transaction:
             return CoinbaseTransaction(inputs[0].tx_hash, outputs[0].address, outputs[0].amount)
         else:
             if specifier == 1:
-                message_length = int.from_bytes(tx_bytes.read(1), ENDIAN)
+                message_length = int.from_bytes(tx_bytes.read(1 if version == 2 else 2), ENDIAN)
                 message = tx_bytes.read(message_length)
             else:
                 message = None
@@ -212,7 +225,7 @@ class Transaction:
                     tx_input.signed = signatures[i]
             else:
                 if not check_signatures:
-                    return Transaction(inputs, outputs, message)
+                    return Transaction(inputs, outputs, message, version)
                 index = {}
                 for tx_input in inputs:
                     public_key = point_to_string(await tx_input.get_public_key())
@@ -224,7 +237,7 @@ class Transaction:
                     for tx_input in index[list(index.keys())[i]]:
                         tx_input.signed = signed
 
-            return Transaction(inputs, outputs, message)
+            return Transaction(inputs, outputs, message, version)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
