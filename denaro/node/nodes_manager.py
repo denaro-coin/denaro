@@ -31,13 +31,11 @@ class NodesManager:
     @staticmethod
     async def request(url: str, method: str = 'GET', **kwargs):
         async with NodesManager.async_client.stream(method, url, **kwargs) as response:
-            i = 0
             res = ''
             async for chunk in response.aiter_text():
                 res += chunk
-                if i > 5000:
+                if len(res) > 1024 ** 2 * 10:
                     break
-                i += 1
         return json.loads(res)
 
     @staticmethod
