@@ -203,7 +203,7 @@ class Transaction:
             return CoinbaseTransaction(inputs[0].tx_hash, outputs[0].address, outputs[0].amount)
         else:
             if specifier == 1:
-                message_length = int.from_bytes(tx_bytes.read(1 if version == 2 else 2), ENDIAN)
+                message_length = int.from_bytes(tx_bytes.read(1 if version <= 2 else 2), ENDIAN)
                 message = tx_bytes.read(message_length)
             else:
                 message = None
