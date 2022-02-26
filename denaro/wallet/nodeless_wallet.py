@@ -93,12 +93,15 @@ async def main():
         print(f'Private key: {hex(private_key)}\nAddress: {address}')
     elif command == 'balance':
         private_keys = db.get('private_keys') or []
+        total_balance = 0
         for private_key in private_keys:
             public_key = keys.get_public_key(private_key, curve.P256)
             address = point_to_string(public_key)
             balance, _ = get_address_info(address)
+            total_balance += balance
             pending_balance = balance  # fixme
-            print(f'Address: {address}\nBalance: {balance}{f" ({pending_balance - balance} pending)" if pending_balance - balance != 0 else ""}')
+            print(f'\nAddress: {address}\nPrivate key: {hex(private_key)}\nBalance: {balance}{f" ({pending_balance - balance} pending)" if pending_balance - balance != 0 else ""}')
+        print(f'\nTotal Balance: {total_balance}')
     elif command == 'send':
         parser = argparse.ArgumentParser()
         parser.add_argument('command', metavar='command', type=str, help='action to do with the wallet')
