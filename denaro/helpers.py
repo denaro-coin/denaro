@@ -123,7 +123,7 @@ def string_to_point(string: str) -> Point:
 
 async def transaction_to_json(tx, verify: bool = False):
     from denaro.transactions import CoinbaseTransaction
-    if verify: await tx.verify()
+    if verify: await tx.verify(False)
     if isinstance(tx, CoinbaseTransaction):
         transaction = {'is_coinbase': True, 'hash': tx.hash(), 'block_hash': tx.block_hash, 'outputs': []}
     else:
