@@ -5,6 +5,8 @@ from os.path import dirname, exists
 import httpx
 import pickledb
 
+from ..helpers import timestamp
+
 path = dirname(os.path.realpath(__file__)) + '/nodes.json'
 if not exists(path):
     json.dump({}, open(path, 'wt'))
@@ -12,6 +14,7 @@ db = pickledb.load(path, True)
 
 
 class NodesManager:
+    last_messages: dict = None
     nodes: list = None
     db = db
 
@@ -23,10 +26,12 @@ class NodesManager:
     def init():
         NodesManager.db._loaddb()
         NodesManager.nodes = NodesManager.db.get('nodes') or ['https://denaro-node.gaetano.eu.org']
+        NodesManager.last_messages = NodesManager.db.get('last_messages') or {}
 
     @staticmethod
     def sync():
         NodesManager.db.set('nodes', NodesManager.nodes)
+        NodesManager.db.set('last_messages', NodesManager.last_messages)
 
     @staticmethod
     async def request(url: str, method: str = 'GET', **kwargs):
@@ -48,6 +53,11 @@ class NodesManager:
 
     @staticmethod
     def add_node(node: str):
+        node = node.strip('/')
+        if len(NodesManager.nodes) > 1000:
+            NodesManager.clear_dead_nodes()
+        if len(NodesManager.nodes) > 1000:
+            raise Exception('Too many nodes')
         NodesManager.init()
         NodesManager.nodes.append(node)
         NodesManager.sync()
@@ -56,8 +66,34 @@ class NodesManager:
     def get_nodes():
         NodesManager.init()
         NodesManager.nodes = list(dict.fromkeys(NodesManager.nodes))
+        NodesManager.nodes = [node.strip('/') for node in NodesManager.nodes]
         NodesManager.sync()
         return NodesManager.nodes
+
+    @staticmethod
+    def get_recent_nodes():
+        full_nodes = {node_url: NodesManager.get_last_message(node_url) for node_url in NodesManager.get_nodes()}
+        return [item[0] for item in sorted(full_nodes.items(), key=lambda item: item[1], reverse=True) if item[1] > 0]
+
+    @staticmethod
+    def get_zero_nodes():
+        return [node for node in NodesManager.get_nodes() if NodesManager.get_last_message(node) == 0]
+
+    @staticmethod
+    def clear_dead_nodes():
+        NodesManager.nodes = [node for node in NodesManager.get_nodes() if NodesManager.get_last_message(node) > 0]
+
+    @staticmethod
+    def get_last_message(node_url: str):
+        NodesManager.init()
+        last_messages = NodesManager.last_messages
+        return last_messages[node_url] if node_url in last_messages else 0
+
+    @staticmethod
+    def update_last_message(node_url: str):
+        NodesManager.init()
+        NodesManager.last_messages[node_url.strip('/')] = timestamp()
+        NodesManager.sync()
 
 
 class NodeInterface:

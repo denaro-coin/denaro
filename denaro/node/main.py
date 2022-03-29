@@ -32,9 +32,14 @@ async def propagate(path: str, args: dict, ignore_url=None):
     global self_url
     self_node = NodeInterface(self_url or '')
     ignore_node = NodeInterface(ignore_url or '')
-    nodes = NodesManager.get_nodes()
+    active_nodes = NodesManager.get_recent_nodes()
+    zero_nodes = NodesManager.get_zero_nodes()
+    send_nodes = \
+        random.choices(active_nodes, k=7) if len(active_nodes) > 7 else active_nodes + \
+        random.choices(zero_nodes, k=3) if len(zero_nodes) > 3 else zero_nodes
     print(args)
-    for node_url in random.choices(nodes, k=50) if len(nodes) > 50 else nodes:
+    print(send_nodes)
+    for node_url in send_nodes:
         node_interface = NodeInterface(node_url)
         print('sending to', node_url)
         if node_interface.base_url == self_node.base_url or node_interface.base_url == ignore_node.base_url:
@@ -148,10 +153,12 @@ async def _sync_blockchain(node_url: str = None):
 
 async def sync_blockchain(node_url: str = None):
     try:
-        return await _sync_blockchain(node_url)
+        await _sync_blockchain(node_url)
     except Exception as e:
         print(e)
-        pass
+        return
+    if node_url is not None:
+        NodesManager.update_last_message(node_url)
 
 
 @app.on_event("startup")
@@ -288,6 +295,10 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
         final_transactions.extend(pending_transactions)
     if not await create_block(block_content, final_transactions):
         return {'ok': False}
+
+    if 'Sender-Node' in request.headers:
+        NodesManager.update_last_message(request.headers['Sender-Node'])
+
     background_tasks.add_task(propagate, 'push_block', {
         'block_content': block_content,
         'txs': [tx.hex() for tx in final_transactions] if len(final_transactions) < 10 else txs,
@@ -349,8 +360,7 @@ async def add_node(url: str, background_tasks: BackgroundTasks):
 
 @app.get("/get_nodes")
 async def get_nodes():
-    nodes = NodesManager.get_nodes()
-    return {'ok': True, 'result': nodes}
+    return {'ok': True, 'result': NodesManager.get_recent_nodes()[:100]}
 
 
 @app.get("/get_pending_transactions")
