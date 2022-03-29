@@ -81,7 +81,9 @@ class NodesManager:
 
     @staticmethod
     def clear_dead_nodes():
+        NodesManager.init()
         NodesManager.nodes = [node for node in NodesManager.get_nodes() if NodesManager.get_last_message(node) > 0]
+        NodesManager.sync()
 
     @staticmethod
     def get_last_message(node_url: str):
