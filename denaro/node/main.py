@@ -234,12 +234,14 @@ async def exception_handler(request: Request, e: Exception):
 
 @app.get("/push_tx")
 @app.post("/push_tx")
-async def push_tx(background_tasks: BackgroundTasks, tx_hex: str = None, body=Body(False)):
+async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: str = None, body=Body(False)):
     if body and tx_hex is None:
         tx_hex = body['tx_hex']
     tx = await Transaction.from_hex(tx_hex)
     try:
         if await db.add_pending_transaction(tx):
+            if 'Sender-Node' in request.headers:
+                NodesManager.update_last_message(request.headers['Sender-Node'])
             background_tasks.add_task(propagate, 'push_tx', {'tx_hex': tx_hex})
             return {'ok': True, 'result': 'Transaction has been accepted'}
         else:
