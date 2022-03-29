@@ -49,8 +49,8 @@ async def propagate(path: str, args: dict, ignore_url=None):
             print('node response: ', r)
         except Exception as e:
             print(e)
-            if not isinstance(e, TimeoutException):
-                NodesManager.get_nodes().remove(node_url)
+            #if not isinstance(e, TimeoutException):
+                #NodesManager.get_nodes().remove(node_url)
             NodesManager.sync()
 
 
