@@ -54,7 +54,7 @@ class NodesManager:
     @staticmethod
     def add_node(node: str):
         node = node.strip('/')
-        if len(NodesManager.nodes) > 1000:
+        if len(NodesManager.nodes) > 1000 or len(NodesManager.get_zero_nodes()) > 10:
             NodesManager.clear_dead_nodes()
         if len(NodesManager.nodes) > 1000:
             raise Exception('Too many nodes')
