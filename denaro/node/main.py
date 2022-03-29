@@ -35,8 +35,8 @@ async def propagate(path: str, args: dict, ignore_url=None):
     active_nodes = NodesManager.get_recent_nodes()
     zero_nodes = NodesManager.get_zero_nodes()
     send_nodes = \
-        random.choices(active_nodes, k=7) if len(active_nodes) > 7 else active_nodes + \
-        random.choices(zero_nodes, k=3) if len(zero_nodes) > 3 else zero_nodes
+        (random.choices(active_nodes, k=7) if len(active_nodes) > 7 else active_nodes) + \
+        (random.choices(zero_nodes, k=3) if len(zero_nodes) > 3 else zero_nodes)
     print(args)
     print(send_nodes)
     for node_url in send_nodes:
