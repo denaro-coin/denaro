@@ -42,3 +42,12 @@ async def create_transaction(private_keys, receiving_address, amount, message: b
     transaction.sign(private_keys)
 
     return transaction
+
+
+def string_to_bytes(string: str) -> bytes:
+    if string is None:
+        return None
+    try:
+        return bytes.fromhex(string)
+    except ValueError:
+        return string.encode('utf-8')

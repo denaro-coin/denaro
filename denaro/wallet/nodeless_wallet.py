@@ -8,6 +8,8 @@ import pickledb
 import requests
 from fastecdsa import keys, curve
 
+from denaro.wallet.utils import string_to_bytes
+
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path + "/../..")
 
@@ -15,11 +17,11 @@ from denaro.transactions import Transaction, TransactionOutput, TransactionInput
 from denaro.constants import CURVE
 from denaro.helpers import point_to_string, sha256, string_to_point
 
-node_url = 'https://denaro-node.gaetano.eu.org'
+NODE_URL = 'https://denaro-node.gaetano.eu.org'
 
 
 def get_address_info(address: str):
-    request = requests.get(f'{node_url}/get_address_info', {'address': address})
+    request = requests.get(f'{NODE_URL}/get_address_info', {'address': address})
     result = request.json()['result']
     tx_inputs = []
     for spendable_tx_input in result['spendable_outputs']:
@@ -30,7 +32,7 @@ def get_address_info(address: str):
     return result['balance'], tx_inputs
 
 
-def create_transaction(private_keys, receiving_address, amount):
+def create_transaction(private_keys, receiving_address, amount, message: bytes = None):
     amount = Decimal(amount)
     inputs = []
     for private_key in private_keys:
@@ -60,13 +62,13 @@ def create_transaction(private_keys, receiving_address, amount):
 
     transaction_amount = sum(input.amount for input in transaction_inputs)
 
-    transaction = Transaction(transaction_inputs, [TransactionOutput(receiving_address, amount=amount)])
+    transaction = Transaction(transaction_inputs, [TransactionOutput(receiving_address, amount=amount)], message)
     if transaction_amount > amount:
         transaction.outputs.append(TransactionOutput(address, transaction_amount - amount))
 
     transaction.sign(private_keys)
 
-    requests.get('https://denaro-node.gaetano.eu.org/push_tx', {'tx_hex': transaction.hex()}, timeout=10)
+    requests.get(f'{NODE_URL}/push_tx', {'tx_hex': transaction.hex()}, timeout=10)
     return transaction
 
 
@@ -75,6 +77,7 @@ async def main():
     parser.add_argument('command', metavar='command', type=str, help='action to do with the wallet', choices=['createwallet', 'send', 'balance'])
     parser.add_argument('-to', metavar='recipient', type=str, required=False)
     parser.add_argument('-d', metavar='amount', type=str, required=False)
+    parser.add_argument('-m', metavar='message', type=str, dest='message', required=False)
 
     args = parser.parse_args()
     db = pickledb.load(f'{dir_path}/wallet.json', True)
@@ -107,12 +110,14 @@ async def main():
         parser.add_argument('command', metavar='command', type=str, help='action to do with the wallet')
         parser.add_argument('-to', metavar='recipient', type=str, dest='recipient', required=True)
         parser.add_argument('-d', metavar='amount', type=str, dest='amount', required=True)
+        parser.add_argument('-m', metavar='message', type=str, dest='message', required=False)
 
         args = parser.parse_args()
         receiver = args.recipient
         amount = args.amount
+        message = args.message
 
-        tx = create_transaction(db.get('private_keys'), receiver, amount)
+        tx = create_transaction(db.get('private_keys'), receiver, amount, string_to_bytes(message))
         print(f'Transaction pushed. Transaction hash: {sha256(tx.hex())}')
 
 
