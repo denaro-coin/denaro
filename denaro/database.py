@@ -5,6 +5,7 @@ from typing import List, Union, Tuple
 import asyncpg
 from asyncpg import Connection, Pool, UndefinedTableError
 
+from .constants import MAX_BLOCK_SIZE_HEX
 from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat, normalize_block
 from .transactions import Transaction, CoinbaseTransaction, TransactionInput
 
