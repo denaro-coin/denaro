@@ -21,7 +21,6 @@ from denaro.constants import VERSION, ENDIAN
 app = FastAPI()
 db: Database = None
 NodesManager.init()
-nodes = NodesManager.get_nodes()
 started = False
 self_url = None
 
@@ -90,7 +89,7 @@ async def create_blocks(blocks: list):
 async def _sync_blockchain(node_url: str = None):
     print('sync blockchain')
     if node_url is None:
-        nodes = NodesManager.get_nodes()
+        nodes = NodesManager.get_recent_nodes()
         if not nodes:
             return
         node_url = random.choice(nodes)
@@ -180,7 +179,7 @@ def read_root():
 @app.middleware("http")
 async def middleware(request: Request, call_next):
     global started, self_url, synced
-    nodes = NodesManager.get_nodes()
+    nodes = NodesManager.get_recent_nodes()
     hostname = request.base_url.hostname
 
     if 'Sender-Node' in request.headers:
