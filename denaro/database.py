@@ -184,13 +184,13 @@ class Database:
         async with self.pool.acquire() as connection:
             if ignore is not None:
                 res = await connection.fetchrow(
-                    'SELECT tx_hash FROM pending_transactions WHERE tx_hex LIKE ANY($1) AND tx_hash != $2 LIMIT 1',
+                    'SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1) AND tx_hash != $2 LIMIT 1',
                     [f"%{contains}%" for contains in contains],
                     ignore
                 )
             else:
                 res = await connection.fetchrow(
-                    'SELECT tx_hash FROM pending_transactions WHERE tx_hex LIKE ANY($1) LIMIT 1',
+                    'SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1) LIMIT 1',
                     [f"%{contains}%" for contains in contains],
                 )
         return await Transaction.from_hex(res['tx_hex']) if res is not None else None
