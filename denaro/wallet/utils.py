@@ -25,15 +25,16 @@ async def create_transaction(private_keys, receiving_address, amount, message: b
     if sum(input.amount for input in inputs) < amount:
         raise Exception(f"Error: You don\'t have enough funds")
 
-    most_amount = sorted(inputs, key=lambda item: item.amount, reverse=True)
-
     transaction_inputs = []
 
-    for i, tx_input in enumerate(most_amount):
-        transaction_inputs.append(tx_input)
-        transaction_amount = sum(input.amount for input in transaction_inputs)
-        if transaction_amount >= amount:
+    for tx_input in sorted(inputs, key=lambda item: item.amount):
+        if tx_input.amount >= amount:
+            transaction_inputs.append(tx_input)
             break
+    for tx_input in sorted(inputs, key=lambda item: item.amount, reverse=True):
+        if sum(input.amount for input in transaction_inputs) >= amount:
+            break
+        transaction_inputs.append(tx_input)
 
     transaction_amount = sum(input.amount for input in transaction_inputs)
 
