@@ -39,7 +39,7 @@ async def create_transaction(private_keys, receiving_address, amount, message: b
 
     transaction = Transaction(transaction_inputs, [TransactionOutput(receiving_address, amount=amount)], message)
     if transaction_amount > amount:
-        transaction.outputs.append(TransactionOutput(address, transaction_amount - amount))
+        transaction.outputs.append(TransactionOutput(send_back_address, transaction_amount - amount))
 
     transaction.sign(private_keys)
 
