@@ -281,6 +281,22 @@ class Database:
                 txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1) OR $1 && inputs_addresses", addresses) + txs
         return [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
 
+    async def get_address_pending_transactions(self, address: str, check_signatures: bool = False) -> List[Union[Transaction, CoinbaseTransaction]]:
+        point = string_to_point(address)
+        search = ['%' + point_to_bytes(string_to_point(address), address_format).hex() + '%' for address_format in list(AddressFormat)]
+        addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
+        async with self.pool.acquire() as connection:
+            txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1) OR $2 && inputs_addresses", search, addresses)
+        return [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
+
+    async def get_address_pending_spent_outputs(self, address: str, check_signatures: bool = False) -> List[Union[Transaction, CoinbaseTransaction]]:
+        point = string_to_point(address)
+        addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
+        async with self.pool.acquire() as connection:
+            txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses)
+            txs = [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
+        return sum([[tx_input.tx_hash for tx_input in tx.inputs] for tx in txs], [])
+
     async def get_spendable_outputs(self, address: str, check_pending_txs: bool = False) -> List[TransactionInput]:
         point = string_to_point(address)
         search = ['%'+point_to_bytes(string_to_point(address), address_format).hex()+'%' for address_format in list(AddressFormat)]
