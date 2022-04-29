@@ -8,12 +8,14 @@ from denaro.helpers import point_to_string
 from denaro.transactions import Transaction, TransactionOutput
 
 
-async def create_transaction(private_keys, receiving_address, amount, message: bytes = None):
+async def create_transaction(private_keys, receiving_address, amount, message: bytes = None, send_back_address=None):
     denaro_database: Database = await Database.get()
     amount = Decimal(amount)
     inputs = []
     for private_key in private_keys:
         address = point_to_string(keys.get_public_key(private_key, CURVE))
+        if send_back_address is None:
+            send_back_address = address
         inputs.extend(await denaro_database.get_spendable_outputs(address, check_pending_txs=True))
         if sum(input.amount for input in inputs) >= amount:
             break
