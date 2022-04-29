@@ -121,7 +121,7 @@ def string_to_point(string: str) -> Point:
     return bytes_to_point(string_to_bytes(string))
 
 
-async def transaction_to_json(tx, verify: bool = False):
+async def transaction_to_json(tx, verify: bool = False, address: str = None):
     from denaro.transactions import CoinbaseTransaction
     if isinstance(tx, CoinbaseTransaction):
         transaction = {'is_coinbase': True, 'hash': tx.hash(), 'block_hash': tx.block_hash, 'outputs': []}
@@ -129,16 +129,15 @@ async def transaction_to_json(tx, verify: bool = False):
         delta = None
         if verify:
             await tx.verify(False)
-            if all([await tx_input.get_public_key() == await tx.inputs[0].get_public_key() for tx_input in tx.inputs]):
-                public_key = await tx.inputs[0].get_public_key()
-                address = point_to_string(public_key)
-                delta = 0
-                for tx_input in tx.inputs:
-                    if await tx_input.get_public_key() == public_key:
-                        delta -= tx_input.amount
-                for tx_output in tx.outputs:
-                    if tx_output.address == address:
-                        delta += tx_output.amount
+        if address is not None:
+            public_key = string_to_point(address)
+            delta = 0
+            for tx_input in tx.inputs:
+                if await tx_input.get_public_key() == public_key:
+                    delta -= tx_input.amount
+            for tx_output in tx.outputs:
+                if tx_output.public_key == public_key:
+                    delta += tx_output.amount
         transaction = {'is_coinbase': False, 'hash': tx.hash(), 'block_hash': tx.block_hash, 'message': tx.message.hex() if tx.message is not None else None, 'inputs': [], 'outputs': [], 'delta': delta, 'fees': tx.fees}
         for input in tx.inputs:
             related_transaction = await transaction_to_json(await input.get_transaction()) if verify else None

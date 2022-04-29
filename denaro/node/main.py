@@ -336,8 +336,8 @@ async def get_address_info(address: str, transactions_count_limit: int = 5, show
     return {'ok': True, 'result': {
         'balance': balance,
         'spendable_outputs': [{'amount': output.amount, 'tx_hash': output.tx_hash, 'index': output.index} for output in outputs],
-        'transactions': [await transaction_to_json(tx, verify) for tx in await db.get_address_transactions(address, limit=transactions_count_limit, check_signatures=verify)],
-        'pending_transactions': [await transaction_to_json(tx, verify) for tx in await db.get_address_pending_transactions(address)] if show_pending else None,
+        'transactions': [await transaction_to_json(tx, verify, address) for tx in await db.get_address_transactions(address, limit=transactions_count_limit, check_signatures=verify)],
+        'pending_transactions': [await transaction_to_json(tx, verify, address) for tx in await db.get_address_pending_transactions(address)] if show_pending else None,
         'pending_spent_outputs': await db.get_address_pending_spent_outputs(address) if show_pending else None
     }}
 
