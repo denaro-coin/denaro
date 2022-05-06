@@ -90,11 +90,19 @@ class Database:
 
     async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions GROUP BY tx_hex, fees HAVING SUM(LENGTH(tx_hex)) < {limit} ORDER BY fees / LENGTH(tx_hex) DESC')
+            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC')
         txs_hex = sorted(tx['tx_hex'] for tx in txs)
+        return_txs = []
+        size = 0
+        for tx in txs_hex:
+            if size + len(tx) > limit:
+                break
+            return_txs.append(tx)
+            size += len(tx)
+
         if hex_only:
-            return txs_hex
-        return [await Transaction.from_hex(tx_hex) for tx_hex in txs_hex]
+            return return_txs
+        return [await Transaction.from_hex(tx_hex) for tx_hex in return_txs]
 
     async def add_transaction(self, transaction: Union[Transaction, CoinbaseTransaction], block_hash: str):
         tx_hex = transaction.hex()
