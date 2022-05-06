@@ -116,7 +116,7 @@ class Database:
                 break
             fees.append(tx['fees'])
             size += tx['size']
-        return mean(fees)
+        return int(mean(fees))
 
     async def get_pending_blocks_count(self):
         async with self.pool.acquire() as connection:
