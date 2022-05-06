@@ -1,5 +1,6 @@
 from datetime import datetime
 from decimal import Decimal
+from statistics import mean
 from typing import List, Union, Tuple
 
 import asyncpg
@@ -90,11 +91,11 @@ class Database:
 
     async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC')
-        txs_hex = sorted(tx['tx_hex'] for tx in txs)
+            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC, LENGTH(tx_hex) ASC')
         return_txs = []
         size = 0
-        for tx in txs_hex:
+        for tx in txs:
+            tx = tx['tx_hex']
             if size + len(tx) > limit:
                 break
             return_txs.append(tx)
@@ -103,6 +104,24 @@ class Database:
         if hex_only:
             return return_txs
         return [await Transaction.from_hex(tx_hex) for tx_hex in return_txs]
+
+    async def get_next_block_average_fee(self):
+        limit = MAX_BLOCK_SIZE_HEX
+        async with self.pool.acquire() as connection:
+            txs = await connection.fetch(f'SELECT LENGTH(tx_hex) as size, fees FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC, LENGTH(tx_hex) ASC')
+        fees = []
+        size = 0
+        for tx in txs:
+            if size + tx['size'] > limit:
+                break
+            fees.append(tx['fees'])
+            size += tx['size']
+        return mean(fees)
+
+    async def get_pending_blocks_count(self):
+        async with self.pool.acquire() as connection:
+            txs = await connection.fetch(f'SELECT LENGTH(tx_hex) as size FROM pending_transactions')
+        return int(sum([tx['size'] for tx in txs]) / MAX_BLOCK_SIZE_HEX + 1)
 
     async def add_transaction(self, transaction: Union[Transaction, CoinbaseTransaction], block_hash: str):
         tx_hex = transaction.hex()
