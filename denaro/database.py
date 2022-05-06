@@ -6,7 +6,7 @@ from typing import List, Union, Tuple
 import asyncpg
 from asyncpg import Connection, Pool, UndefinedTableError
 
-from .constants import MAX_BLOCK_SIZE_HEX
+from .constants import MAX_BLOCK_SIZE_HEX, SMALLEST
 from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat, normalize_block
 from .transactions import Transaction, CoinbaseTransaction, TransactionInput
 
@@ -91,11 +91,11 @@ class Database:
 
     async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC, LENGTH(tx_hex) ASC')
+            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC')
+        txs_hex = sorted(tx['tx_hex'] for tx in txs)
         return_txs = []
         size = 0
-        for tx in txs:
-            tx = tx['tx_hex']
+        for tx in txs_hex:
             if size + len(tx) > limit:
                 break
             return_txs.append(tx)
@@ -116,7 +116,7 @@ class Database:
                 break
             fees.append(tx['fees'])
             size += tx['size']
-        return int(mean(fees))
+        return int(mean(fees) * SMALLEST) // Decimal(SMALLEST)
 
     async def get_pending_blocks_count(self):
         async with self.pool.acquire() as connection:
