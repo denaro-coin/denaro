@@ -167,7 +167,7 @@ class Transaction:
                     if public_key == input.transaction.outputs[input.index].public_key:
                         input.private_key = private_key
         for input in self.inputs:
-            if input.signed is None and input.private_key is not None:
+            if input.private_key is not None:
                 input.sign(self.hex(False))
         return self
 
