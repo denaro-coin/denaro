@@ -91,8 +91,8 @@ class Database:
 
     async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC')
-        txs_hex = sorted(tx['tx_hex'] for tx in txs)
+            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC, LENGTH(tx_hex)')
+        txs_hex = [tx['tx_hex'] for tx in txs]
         return_txs = []
         size = 0
         for tx in txs_hex:
@@ -100,7 +100,6 @@ class Database:
                 break
             return_txs.append(tx)
             size += len(tx)
-
         if hex_only:
             return return_txs
         return [await Transaction.from_hex(tx_hex) for tx_hex in return_txs]
