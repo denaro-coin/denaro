@@ -318,13 +318,14 @@ async def get_mining_info(background_tasks: BackgroundTasks):
     Manager.difficulty = None
     difficulty, last_block = await get_difficulty()
     pending_transactions = await db.get_pending_transactions_limit(hex_only=True)
+    pending_transactions = sorted(pending_transactions)
     if random.randint(0, 10 + len(pending_transactions)) == 0:
         background_tasks.add_task(clear_pending_transactions)
     return {'ok': True, 'result': {
         'difficulty': difficulty,
         'last_block': last_block,
         'pending_transactions': pending_transactions[:10],
-        'pending_transactions_hashes': (sha256(tx) for tx in pending_transactions),
+        'pending_transactions_hashes': [sha256(tx) for tx in pending_transactions],
         'merkle_root': get_transactions_merkle_tree(pending_transactions[:10])
     }}
 
