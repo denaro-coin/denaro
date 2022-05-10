@@ -13,6 +13,8 @@ CREATE TABLE IF NOT EXISTS transactions (
 	tx_hash CHAR(64) UNIQUE,
 	tx_hex TEXT,
 	inputs_addresses TEXT[],
+	outputs_addresses TEXT[],
+	outputs_amounts BIGINT[],
 	fees NUMERIC(14, 6) NOT NULL
 );
 

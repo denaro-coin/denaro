@@ -4,7 +4,7 @@ from statistics import mean
 from typing import List, Union, Tuple
 
 import asyncpg
-from asyncpg import Connection, Pool, UndefinedTableError
+from asyncpg import Connection, Pool, UndefinedColumnError
 
 from .constants import MAX_BLOCK_SIZE_HEX, SMALLEST
 from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat, normalize_block
@@ -32,10 +32,10 @@ class Database:
         if not ignore:
             async with self.pool.acquire() as connection:
                 try:
-                    res = await connection.fetchrow('SELECT * FROM unspent_outputs WHERE true LIMIT 1')
-                except UndefinedTableError:
-                    print('Unspent outputs missing, run create_unspent_outputs.py')
-                    exit()
+                    await connection.fetchrow('SELECT outputs_addresses FROM transactions LIMIT 1')
+                except UndefinedColumnError:
+                    await connection.execute('ALTER TABLE transactions ADD COLUMN outputs_addresses TEXT[];'
+                                              'ALTER TABLE transactions ADD COLUMN outputs_amounts BIGINT[];')
         Database.instance = self
         return self
 
@@ -123,16 +123,7 @@ class Database:
         return int(sum([tx['size'] for tx in txs]) / MAX_BLOCK_SIZE_HEX + 1)
 
     async def add_transaction(self, transaction: Union[Transaction, CoinbaseTransaction], block_hash: str):
-        tx_hex = transaction.hex()
-        async with self.pool.acquire() as connection:
-            stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, fees) VALUES ($1, $2, $3, $4, $5)')
-            await stmt.fetchval(
-                block_hash,
-                sha256(tx_hex),
-                tx_hex,
-                [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs] if isinstance(transaction, Transaction) else [],
-                transaction.fees if isinstance(transaction, Transaction) else 0
-            )
+        await self.add_transactions([transaction], block_hash)
 
     async def add_transactions(self, transactions: List[Union[Transaction, CoinbaseTransaction]], block_hash: str):
         data = []
@@ -142,10 +133,12 @@ class Database:
                 transaction.hash(),
                 transaction.hex(),
                 [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs] if isinstance(transaction, Transaction) else [],
+                [tx_output.address for tx_output in transaction.outputs],
+                [tx_output.amount * SMALLEST for tx_output in transaction.outputs],
                 transaction.fees if isinstance(transaction, Transaction) else 0
             ))
         async with self.pool.acquire() as connection:
-            stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, fees) VALUES ($1, $2, $3, $4, $5)')
+            stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, outputs_addresses, outputs_amounts, fees) VALUES ($1, $2, $3, $4, $5, $6, $7)')
             await stmt.executemany(data)
 
     async def add_block(self, id: int, block_hash: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, int]):
@@ -327,30 +320,34 @@ class Database:
         search = ['%'+point_to_bytes(string_to_point(address), address_format).hex()+'%' for address_format in list(AddressFormat)]
         addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', search)
+            txs = await connection.fetch('SELECT tx_hex, outputs_addresses, outputs_amounts FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', search)
             spender_txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses) if check_pending_txs else []
-        inputs = []
-        outputs = []
+        outputs = {}
         for tx in txs:
+            tx = dict(tx)
             tx_hash = sha256(tx['tx_hex'])
-            tx = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
-            for i, tx_output in enumerate(tx.outputs):
-                if tx_output.address in addresses:
-                    tx_input = TransactionInput(tx_hash, i, transaction=tx, amount=tx_output.amount)
-                    outputs.append((tx_hash, i))
-                    inputs.append(tx_input)
+            if tx['outputs_addresses'] is None:
+                transaction = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
+                tx['outputs_addresses'] = [tx_output.address for tx_output in transaction.outputs]
+                tx['outputs_amounts'] = [tx_output.amount * SMALLEST for tx_output in transaction.outputs]
+                async with self.pool.acquire() as connection:
+                    await connection.execute("UPDATE transactions SET outputs_addresses = $1, outputs_amounts = $2 WHERE tx_hash = $3", tx['outputs_addresses'], tx['outputs_amounts'], tx_hash)
+                print(tx['outputs_addresses'])
+            for i, tx_output_address in enumerate(tx['outputs_addresses']):
+                if tx_output_address in addresses:
+                    tx_input = TransactionInput(tx_hash, i, transaction=tx, amount=tx['outputs_amounts'][i] / Decimal(SMALLEST))
+                    outputs[(tx_hash, i)] = tx_input
         for spender_tx in spender_txs:
             spender_tx = await Transaction.from_hex(spender_tx['tx_hex'], check_signatures=False)
             for tx_input in spender_tx.inputs:
-                if (tx_input.tx_hash, tx_input.index) in outputs:
-                    outputs.remove((tx_input.tx_hash, tx_input.index))
+                if (tx_input.tx_hash, tx_input.index) in outputs.keys():
+                    del outputs[(tx_input.tx_hash, tx_input.index)]
 
-        unspent_outputs = await self.get_unspent_outputs(outputs)
+        unspent_outputs = await self.get_unspent_outputs(outputs.keys())
 
         final = []
-        for tx_input in inputs:
-            if (tx_input.tx_hash, tx_input.index) in unspent_outputs:
-                final.append(tx_input)
+        for unspent_output in unspent_outputs:
+            final.append(outputs[unspent_output])
 
         return final
 
