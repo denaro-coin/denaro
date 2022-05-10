@@ -235,6 +235,7 @@ class Database:
             transactions: list = await connection.fetch(f'SELECT tx_hex, block_hash FROM transactions WHERE block_hash = ANY(SELECT hash FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2)', offset, limit)
             blocks = await connection.fetch(f'SELECT * FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2', offset, limit)
         result = []
+        size = 0
         for block in blocks:
             block = normalize_block(block)
             txs = []
@@ -242,6 +243,9 @@ class Database:
                 if transaction['block_hash'] == block['hash']:
                     transactions.remove(transaction)
                     txs.append(transaction['tx_hex'])
+            size += sum(len(transaction) for transaction in transactions)
+            if size > MAX_BLOCK_SIZE_HEX * 3:
+                break
             result.append({
                 'block': block,
                 'transactions': txs
