@@ -7,6 +7,8 @@ import pickledb
 
 from ..helpers import timestamp
 
+ACTIVE_NODES_DELTA = 60 * 60 * 24 * 7  # 7 days
+
 path = dirname(os.path.realpath(__file__)) + '/nodes.json'
 if not exists(path):
     json.dump({}, open(path, 'wt'))
@@ -18,7 +20,7 @@ class NodesManager:
     nodes: list = None
     db = db
 
-    timeout = httpx.Timeout(3.0)
+    timeout = httpx.Timeout(1)
     client = httpx.Client(timeout=timeout)
     async_client = httpx.AsyncClient(timeout=timeout)
 
@@ -73,7 +75,7 @@ class NodesManager:
     @staticmethod
     def get_recent_nodes():
         full_nodes = {node_url: NodesManager.get_last_message(node_url) for node_url in NodesManager.get_nodes()}
-        return [item[0] for item in sorted(full_nodes.items(), key=lambda item: item[1], reverse=True) if item[1] > 0]
+        return [item[0] for item in sorted(full_nodes.items(), key=lambda item: item[1], reverse=True) if item[1] > timestamp() - ACTIVE_NODES_DELTA]
 
     @staticmethod
     def get_zero_nodes():
