@@ -162,9 +162,10 @@ class Transaction:
     def sign(self, private_keys: list = []):
         for private_key in private_keys:
             for input in self.inputs:
-                if input.private_key is None and input.transaction is not None:
+                if input.private_key is None and (input.public_key or input.transaction):
                     public_key = keys.get_public_key(private_key, CURVE)
-                    if public_key == input.transaction.outputs[input.index].public_key:
+                    input_public_key = input.public_key or input.transaction.outputs[input.index].public_key
+                    if public_key == input_public_key:
                         input.private_key = private_key
         for input in self.inputs:
             if input.private_key is not None:
