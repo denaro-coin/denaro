@@ -91,7 +91,7 @@ class Transaction:
     async def _verify_double_spend(self):
         from .. import Database
         check_inputs = [tx_input.tx_hash + bytes([tx_input.index]).hex() for tx_input in self.inputs]
-        tx = await Database.instance.get_transaction_by_contains_multi(check_inputs, sha256(self.hex()))
+        tx = await Database.instance.get_transaction_hash_by_contains_multi(check_inputs, sha256(self.hex()))
         return tx is None
 
     async def _verify_double_spend_pending(self):
