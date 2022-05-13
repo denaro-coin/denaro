@@ -45,10 +45,6 @@ class Database:
             await Database.create(**Database.credentials)
         return Database.instance
 
-    """@property
-    def connection(self):
-        return await self.pool.acquire()"""
-
     async def add_pending_transaction(self, transaction: Transaction, verify: bool = True):
         if isinstance(transaction, CoinbaseTransaction):
             return False
@@ -283,15 +279,15 @@ class Database:
     async def get_unspent_outputs_from_all_transactions(self):
         async with self.pool.acquire() as connection:
             txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE true')
-            transactions = {sha256(tx['tx_hex']): await Transaction.from_hex(tx['tx_hex'], False) for tx in txs}
-            outputs = sum([[(transaction.hash(), index) for index in range(len(transaction.outputs))] for transaction in transactions.values()], [])
-            for tx_hash, transaction in transactions.items():
-                if isinstance(transaction, CoinbaseTransaction):
-                    continue
-                for tx_input in transaction.inputs:
-                    if (tx_input.tx_hash, tx_input.index) in outputs:
-                        outputs.remove((tx_input.tx_hash, tx_input.index))
-            return outputs
+        transactions = {sha256(tx['tx_hex']): await Transaction.from_hex(tx['tx_hex']) for tx in txs}
+        outputs = sum([[(tx_hash, index) for index in range(len(transaction.outputs))] for tx_hash, transaction in transactions.items()], [])
+        for tx_hash, transaction in transactions.items():
+            if isinstance(transaction, CoinbaseTransaction):
+                continue
+            for tx_input in transaction.inputs:
+                if (tx_input.tx_hash, tx_input.index) in outputs:
+                    outputs.remove((tx_input.tx_hash, tx_input.index))
+        return outputs
 
     async def get_address_transactions(self, address: str, check_pending_txs: bool = False, check_signatures: bool = False, limit: int = 50) -> List[Union[Transaction, CoinbaseTransaction]]:
         point = string_to_point(address)
