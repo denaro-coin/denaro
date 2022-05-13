@@ -339,7 +339,7 @@ class Database:
                 print(tx['outputs_addresses'])
             for i, tx_output_address in enumerate(tx['outputs_addresses']):
                 if tx_output_address in addresses:
-                    tx_input = TransactionInput(tx_hash, i, transaction=tx, amount=tx['outputs_amounts'][i] / Decimal(SMALLEST))
+                    tx_input = TransactionInput(tx_hash, i, public_key=string_to_point(tx_output_address), amount=tx['outputs_amounts'][i] / Decimal(SMALLEST))
                     outputs[(tx_hash, i)] = tx_input
         for spender_tx in spender_txs:
             spender_tx = await Transaction.from_hex(spender_tx['tx_hex'], check_signatures=False)

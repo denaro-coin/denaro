@@ -2,6 +2,7 @@ from decimal import Decimal
 from typing import Tuple
 
 from fastecdsa import ecdsa
+from fastecdsa.point import Point
 
 from ..constants import CURVE, ENDIAN
 from ..helpers import point_to_string
@@ -13,12 +14,13 @@ class TransactionInput:
     signed: Tuple[int, int] = None
     amount: Decimal = None
 
-    def __init__(self, input_tx_hash: str, index: int, private_key: int = None, transaction=None, amount: Decimal = None):
+    def __init__(self, input_tx_hash: str, index: int, private_key: int = None, transaction=None, amount: Decimal = None, public_key: Point = None):
         self.tx_hash = input_tx_hash
         self.index = index
         self.private_key = private_key
         self.transaction = transaction
         self.amount = amount
+        self.public_key = public_key
         if transaction is not None and amount is None:
             self.get_related_output()
 
@@ -41,7 +43,7 @@ class TransactionInput:
         self.signed = ecdsa.sign(bytes.fromhex(tx_hex), private_key)
 
     async def get_public_key(self):
-        return (await self.get_related_output()).public_key
+        return self.public_key or (await self.get_related_output()).public_key
 
     def tobytes(self):
         return bytes.fromhex(self.tx_hash) + self.index.to_bytes(1, ENDIAN)
