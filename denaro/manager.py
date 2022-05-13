@@ -128,12 +128,14 @@ def __check():
     print(index)
 
 
-async def clear_pending_transactions():
+async def clear_pending_transactions(transactions=None):
     database: Database = Database.instance
-    transactions = await database.get_pending_transactions_limit(1000)
+    transactions = transactions or await database.get_pending_transactions_limit(419430, hex_only=True)
 
     used_inputs = []
     for transaction in transactions:
+        if isinstance(transaction, str):
+            transaction = await Transaction.from_hex(transaction)
         tx_hash = sha256(transaction.hex())
         if not await transaction.verify() or await database.get_transaction(tx_hash, False) is not None:
             await database.remove_pending_transaction(tx_hash)
