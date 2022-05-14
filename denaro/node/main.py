@@ -7,6 +7,7 @@ from fastapi import FastAPI, Body
 from httpx import TimeoutException
 from icecream import ic
 from starlette.background import BackgroundTasks
+from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 
@@ -26,6 +27,13 @@ started = False
 self_url = None
 
 print = ic
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["GET", "POST"],
+    allow_headers=["*"],
+)
 
 
 async def propagate(path: str, args: dict, ignore_url=None):
