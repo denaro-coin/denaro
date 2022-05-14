@@ -239,7 +239,7 @@ class Database:
                 if transaction['block_hash'] == block['hash']:
                     transactions.remove(transaction)
                     txs.append(transaction['tx_hex'])
-            size += sum(len(transaction) for transaction in transactions)
+            size += sum(len(tx) for tx in txs)
             if size > MAX_BLOCK_SIZE_HEX * 3:
                 break
             result.append({
