@@ -1,4 +1,5 @@
 import random
+from collections import deque
 from os import environ
 
 from asyncpg import UniqueViolationError
@@ -230,6 +231,8 @@ async def exception_handler(request: Request, e: Exception):
         content={"ok": False, "error": f"Uncaught {type(e).__name__} exception"},
     )
 
+transactions_cache = deque(maxlen=100)
+
 
 @app.get("/push_tx")
 @app.post("/push_tx")
@@ -238,14 +241,16 @@ async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: s
         tx_hex = body['tx_hex']
     tx = await Transaction.from_hex(tx_hex)
     try:
+        assert tx.hash() not in transactions_cache
         if await db.add_pending_transaction(tx):
             if 'Sender-Node' in request.headers:
                 NodesManager.update_last_message(request.headers['Sender-Node'])
             background_tasks.add_task(propagate, 'push_tx', {'tx_hex': tx_hex})
+            transactions_cache.append(tx.hash())
             return {'ok': True, 'result': 'Transaction has been accepted'}
         else:
             return {'ok': False, 'error': 'Transaction has not been added'}
-    except UniqueViolationError:
+    except (UniqueViolationError, AssertionError):
         return {'ok': False, 'error': 'Transaction already present'}
 
 
