@@ -326,13 +326,18 @@ async def sync(node_url: str = None):
     await sync_blockchain(node_url)
 
 
+LAST_PENDING_TRANSACTIONS_CLEAN = [0]
+
+
 @app.get("/get_mining_info")
 async def get_mining_info(background_tasks: BackgroundTasks):
     Manager.difficulty = None
     difficulty, last_block = await get_difficulty()
     pending_transactions = await db.get_pending_transactions_limit(hex_only=True)
     pending_transactions = sorted(pending_transactions)
-    if random.randint(0, 10 + len(pending_transactions)) == 0:
+    if LAST_PENDING_TRANSACTIONS_CLEAN[0] < timestamp() - 600:
+        print(LAST_PENDING_TRANSACTIONS_CLEAN[0])
+        LAST_PENDING_TRANSACTIONS_CLEAN[0] = timestamp()
         background_tasks.add_task(clear_pending_transactions, pending_transactions)
     return {'ok': True, 'result': {
         'difficulty': difficulty,
