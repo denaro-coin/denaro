@@ -5,6 +5,7 @@ from os.path import dirname, exists
 import httpx
 import pickledb
 
+from ..constants import MAX_BLOCK_SIZE_HEX
 from ..helpers import timestamp
 
 ACTIVE_NODES_DELTA = 60 * 60 * 24 * 7  # 7 days
@@ -41,7 +42,7 @@ class NodesManager:
             res = ''
             async for chunk in response.aiter_text():
                 res += chunk
-                if len(res) > 1024 ** 2 * 10:
+                if len(res) > MAX_BLOCK_SIZE_HEX * 4:
                     break
         return json.loads(res)
 
