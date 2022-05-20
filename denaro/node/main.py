@@ -1,4 +1,5 @@
 import random
+from asyncio import gather
 from collections import deque
 from os import environ
 
@@ -47,19 +48,15 @@ async def propagate(path: str, args: dict, ignore_url=None):
         (random.choices(zero_nodes, k=3) if len(zero_nodes) > 3 else zero_nodes)
     print(args)
     print(send_nodes)
+    aws = []
     for node_url in send_nodes:
         node_interface = NodeInterface(node_url)
         print('sending to', node_url)
         if node_interface.base_url == self_node.base_url or node_interface.base_url == ignore_node.base_url:
             continue
-        try:
-            r = await node_interface.request(path, args, self_node.url)
-            print('node response: ', r)
-        except Exception as e:
-            print(e)
-            #if not isinstance(e, TimeoutException):
-                #NodesManager.get_nodes().remove(node_url)
-            NodesManager.sync()
+        aws.append(node_interface.request(path, args, self_node.url))
+    for response in await gather(*aws, return_exceptions=True):
+        print('node response: ', response)
 
 
 async def create_blocks(blocks: list):
