@@ -319,14 +319,16 @@ class Database:
         point = string_to_point(address)
         search = ['%'+point_to_bytes(string_to_point(address), address_format).hex()+'%' for address_format in list(AddressFormat)]
         addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
+        addresses.reverse()
+        search.reverse()
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch('SELECT tx_hex, outputs_addresses, outputs_amounts FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', search)
+            txs = await connection.fetch('SELECT tx_hash, tx_hex, outputs_addresses, outputs_amounts FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', search)
             spender_txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses) if check_pending_txs else []
         outputs = {}
         for tx in txs:
-            tx = dict(tx)
-            tx_hash = sha256(tx['tx_hex'])
+            tx_hash = tx['tx_hash']
             if tx['outputs_addresses'] is None:
+                tx = dict(tx)
                 transaction = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
                 tx['outputs_addresses'] = [tx_output.address for tx_output in transaction.outputs]
                 tx['outputs_amounts'] = [tx_output.amount * SMALLEST for tx_output in transaction.outputs]
@@ -335,7 +337,7 @@ class Database:
                 print(tx['outputs_addresses'])
             for i, tx_output_address in enumerate(tx['outputs_addresses']):
                 if tx_output_address in addresses:
-                    tx_input = TransactionInput(tx_hash, i, public_key=string_to_point(tx_output_address), amount=tx['outputs_amounts'][i] / Decimal(SMALLEST))
+                    tx_input = TransactionInput(tx_hash, i, public_key=point, amount=tx['outputs_amounts'][i] / Decimal(SMALLEST))
                     outputs[(tx_hash, i)] = tx_input
         for spender_tx in spender_txs:
             spender_tx = await Transaction.from_hex(spender_tx['tx_hex'], check_signatures=False)
@@ -345,11 +347,7 @@ class Database:
 
         unspent_outputs = await self.get_unspent_outputs(outputs.keys())
 
-        final = []
-        for unspent_output in unspent_outputs:
-            final.append(outputs[unspent_output])
-
-        return final
+        return [outputs[unspent_output] for unspent_output in unspent_outputs]
 
     async def get_address_balance(self, address: str, check_pending_txs: bool = False) -> Decimal:
         balance = Decimal(0)
