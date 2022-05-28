@@ -4,7 +4,7 @@ from statistics import mean
 from typing import List, Union, Tuple
 
 import asyncpg
-from asyncpg import Connection, Pool, UndefinedColumnError
+from asyncpg import Connection, Pool, UndefinedColumnError, UndefinedTableError
 
 from .constants import MAX_BLOCK_SIZE_HEX, SMALLEST
 from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat, normalize_block
@@ -36,6 +36,20 @@ class Database:
                 except UndefinedColumnError:
                     await connection.execute('ALTER TABLE transactions ADD COLUMN outputs_addresses TEXT[];'
                                               'ALTER TABLE transactions ADD COLUMN outputs_amounts BIGINT[];')
+                try:
+                    await connection.fetchrow('SELECT * FROM pending_spent_outputs LIMIT 1')
+                except UndefinedTableError:
+                    print('Creating pending_spent_outputs table')
+                    await connection.execute("""CREATE TABLE IF NOT EXISTS pending_spent_outputs (
+                        tx_hash CHAR(64) REFERENCES transactions(tx_hash) ON DELETE CASCADE,
+                        index SMALLINT NOT NULL
+                    )""")
+                    print('Retrieving pending transactions')
+                    txs = await connection.fetch('SELECT tx_hex FROM pending_transactions')
+                    print('Adding pending transactions spent outputs')
+                    await self.add_transactions_pending_spent_outputs([await Transaction.from_hex(tx['tx_hex'], False) for tx in txs])
+                    print('Done.')
+
         Database.instance = self
         return self
 
@@ -59,6 +73,7 @@ class Database:
                 [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs],
                 transaction.fees
             )
+        await self.add_transactions_pending_spent_outputs([transaction])
         return True
 
     async def remove_pending_transaction(self, tx_hash: str):
@@ -262,6 +277,15 @@ class Database:
         async with self.pool.acquire() as connection:
             await connection.executemany('INSERT INTO unspent_outputs (tx_hash, index) VALUES ($1, $2)', outputs)
 
+    async def add_pending_spent_outputs(self, outputs: List[Tuple[str, int]]) -> None:
+        async with self.pool.acquire() as connection:
+            await connection.executemany('INSERT INTO pending_spent_outputs (tx_hash, index) VALUES ($1, $2)', outputs)
+
+    async def add_transactions_pending_spent_outputs(self, transactions: List[Transaction]) -> None:
+        outputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions], [])
+        async with self.pool.acquire() as connection:
+            await connection.executemany('INSERT INTO pending_spent_outputs (tx_hash, index) VALUES ($1, $2)', outputs)
+
     async def add_unspent_transactions_outputs(self, transactions: List[Transaction]) -> None:
         outputs = sum([[(transaction.hash(), index) for index in range(len(transaction.outputs))] for transaction in transactions], [])
         await self.add_unspent_outputs(outputs)
@@ -274,6 +298,11 @@ class Database:
     async def get_unspent_outputs(self, outputs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
         async with self.pool.acquire() as connection:
             results = await connection.fetch('SELECT tx_hash, index FROM unspent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', outputs)
+            return [(row['tx_hash'], row['index']) for row in results]
+
+    async def get_pending_spent_outputs(self, outputs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
+        async with self.pool.acquire() as connection:
+            results = await connection.fetch('SELECT tx_hash, index FROM pending_spent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', outputs)
             return [(row['tx_hash'], row['index']) for row in results]
 
     async def get_unspent_outputs_from_all_transactions(self):

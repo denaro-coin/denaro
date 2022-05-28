@@ -239,14 +239,6 @@ async def exception_handler(request: Request, e: Exception):
 transactions_cache = deque(maxlen=100)
 
 
-async def add_transaction_helper(tx: Transaction, sender_node: str = None):
-    if await tx.verify_double_spend_pending():
-        await db.add_pending_transaction(tx)
-        if sender_node:
-            NodesManager.update_last_message(sender_node)
-        await propagate('push_tx', {'tx_hex': tx.hex()})
-
-
 @app.get("/push_tx")
 @app.post("/push_tx")
 async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: str = None, body=Body(False)):
@@ -255,9 +247,11 @@ async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: s
     tx = await Transaction.from_hex(tx_hex)
     try:
         assert tx.hash() not in transactions_cache
-        if await tx.verify_double_spend():
+        if await db.add_pending_transaction(tx):
+            if 'Sender-Node' in request.headers:
+                NodesManager.update_last_message(request.headers['Sender-Node'])
+            background_tasks.add_task(propagate, 'push_tx', {'tx_hex': tx_hex})
             transactions_cache.append(tx.hash())
-            background_tasks.add_task(add_transaction_helper, tx, request.headers.get('Sender-Node', None))
             return {'ok': True, 'result': 'Transaction has been accepted'}
         else:
             return {'ok': False, 'error': 'Transaction has not been added'}

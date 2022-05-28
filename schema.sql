@@ -35,6 +35,11 @@ CREATE TABLE IF NOT EXISTS pending_transactions (
 	fees NUMERIC(14, 6) NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS pending_spent_outputs (
+	tx_hash CHAR(64) REFERENCES transactions(tx_hash) ON DELETE CASCADE,
+	index SMALLINT NOT NULL
+);
+
 -- if your user is denaro
 -- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO denaro;
 -- GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO denaro;
