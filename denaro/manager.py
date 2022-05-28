@@ -324,6 +324,7 @@ async def create_block(block_content: str, transactions: List[Transaction], last
     if transactions:
         await database.remove_pending_transactions_by_hash([transaction.hash() for transaction in transactions])
         await database.remove_unspent_outputs(transactions)
+        await database.remove_pending_spent_outputs(transactions)
 
         _print(f'Added {len(transactions)} transactions in block {block_no}. Reward: {block_reward}, Fees: {fees}')
     Manager.difficulty = None

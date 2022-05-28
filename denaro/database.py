@@ -295,6 +295,11 @@ class Database:
         async with self.pool.acquire() as connection:
             await connection.execute('DELETE FROM unspent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', inputs)
 
+    async def remove_pending_spent_outputs(self, transactions: List[Transaction]) -> None:
+        inputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions], [])
+        async with self.pool.acquire() as connection:
+            await connection.execute('DELETE FROM pending_spent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', inputs)
+
     async def get_unspent_outputs(self, outputs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
         async with self.pool.acquire() as connection:
             results = await connection.fetch('SELECT tx_hash, index FROM unspent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', outputs)
