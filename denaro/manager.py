@@ -135,16 +135,23 @@ async def clear_pending_transactions(transactions=None):
     used_inputs = []
     for transaction in transactions:
         if isinstance(transaction, str):
+            tx_hash = sha256(transaction)
             transaction = await Transaction.from_hex(transaction)
-        tx_hash = sha256(transaction.hex())
-        if not await transaction.verify() or await database.get_transaction(tx_hash, False) is not None:
+        else:
+            tx_hash = sha256(transaction.hex())
+        if False and not await transaction.verify() or await database.get_transaction(tx_hash, False) is not None:
+            print('removed')
             await database.remove_pending_transaction(tx_hash)
         else:
-            tx_inputs = [f"{tx_input.tx_hash}{tx_input.index}" for tx_input in transaction.inputs]
+            tx_inputs = [(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs]
             if any(used_input in tx_inputs for used_input in used_inputs):
                 await database.remove_pending_transaction(tx_hash)
+                print('removed')
                 return await clear_pending_transactions()
             used_inputs += tx_inputs
+    unspent_outputs = await database.get_unspent_outputs(used_inputs)
+    print(len(used_inputs), len(unspent_outputs))
+    print(len(set(used_inputs)))
 
 
 def get_transactions_merkle_tree_ordered(transactions: List[Union[Transaction, str]]):
