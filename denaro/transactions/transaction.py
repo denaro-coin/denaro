@@ -131,7 +131,7 @@ class Transaction:
             print('double spend inside same transaction')
             return False
 
-        if check_double_spend and not await self._verify_double_spend():
+        if check_double_spend and not await self.verify_double_spend():
             print('double spend')
             return False
 
@@ -157,7 +157,7 @@ class Transaction:
         return input_amount >= output_amount
 
     async def verify_pending(self):
-        return await self.verify() and await self._verify_double_spend_pending()
+        return await self.verify() and await self.verify_double_spend_pending()
 
     def sign(self, private_keys: list = []):
         for private_key in private_keys:
