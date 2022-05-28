@@ -88,13 +88,13 @@ class Transaction:
             used_inputs.append(input_hash)
         return True
 
-    async def _verify_double_spend(self):
+    async def verify_double_spend(self):
         from .. import Database
         check_inputs = [(tx_input.tx_hash, tx_input.index) for tx_input in self.inputs]
         unspent_outputs = await Database.instance.get_unspent_outputs(check_inputs)
         return set(check_inputs) == set(unspent_outputs)
 
-    async def _verify_double_spend_pending(self):
+    async def verify_double_spend_pending(self):
         from .. import Database
         check_inputs = [tx_input.tx_hash + bytes([tx_input.index]).hex() for tx_input in self.inputs]
         tx = await Database.instance.get_pending_transaction_by_contains_multi(check_inputs, sha256(self.hex()))
