@@ -51,7 +51,7 @@ class Database:
                     await self.add_transactions_pending_spent_outputs([await Transaction.from_hex(tx['tx_hex'], False) for tx in txs])
                     print('Done.')
         async with self.pool.acquire() as connection:
-            res = await connection.fetchrow('SELECT outputs_addresses FROM transactions WHERE outputs_addresses IS NULL;')
+            res = await connection.fetchrow('SELECT outputs_addresses FROM transactions WHERE outputs_addresses IS NULL AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs);')
         self.is_indexed = res is None
 
         Database.instance = self
