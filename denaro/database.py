@@ -16,6 +16,7 @@ class Database:
     credentials = {}
     instance = None
     pool: Pool = None
+    is_indexed = False
 
     @staticmethod
     async def create(user='denaro', password='', database='denaro', host='127.0.0.1', ignore: bool = False):
@@ -49,6 +50,9 @@ class Database:
                     print('Adding pending transactions spent outputs')
                     await self.add_transactions_pending_spent_outputs([await Transaction.from_hex(tx['tx_hex'], False) for tx in txs])
                     print('Done.')
+        async with self.pool.acquire() as connection:
+            res = await connection.fetchrow('SELECT outputs_addresses FROM transactions WHERE outputs_addresses IS NULL;')
+        self.is_indexed = res is None
 
         Database.instance = self
         return self
@@ -356,7 +360,10 @@ class Database:
         addresses.reverse()
         search.reverse()
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch('SELECT tx_hash, tx_hex, outputs_addresses, outputs_amounts FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', search)
+            if self.is_indexed:
+                txs = await connection.fetch('SELECT tx_hash, tx_hex, outputs_addresses, outputs_amounts FROM transactions WHERE $1 && outputs_addresses AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', addresses)
+            else:
+                txs = await connection.fetch('SELECT tx_hash, tx_hex, outputs_addresses, outputs_amounts FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', search)
             spender_txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses) if check_pending_txs else []
         outputs = {}
         for tx in txs:
