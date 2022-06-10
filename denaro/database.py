@@ -214,6 +214,10 @@ class Database:
             res = await connection.fetch('SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE $1 AND tx_hash != $2', f"%{contains}%", contains)
         return [await Transaction.from_hex(res['tx_hex']) for res in res] if res is not None else None
 
+    async def remove_pending_transactions_by_contains(self, search: List[str]) -> None:
+        async with self.pool.acquire() as connection:
+            await connection.execute('DELETE FROM pending_transactions WHERE tx_hex LIKE ANY($1)', [f"%{c}%" for c in search])
+
     async def get_pending_transaction_by_contains_multi(self, contains: List[str], ignore: str = None):
         async with self.pool.acquire() as connection:
             if ignore is not None:
