@@ -106,7 +106,7 @@ class Database:
 
     async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC, LENGTH(tx_hex)')
+            txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC, LENGTH(tx_hex), tx_hex')
         txs_hex = [tx['tx_hex'] for tx in txs]
         return_txs = []
         size = 0
@@ -395,12 +395,11 @@ class Database:
         return [outputs[unspent_output] for unspent_output in unspent_outputs]
 
     async def get_address_balance(self, address: str, check_pending_txs: bool = False) -> Decimal:
-        balance = Decimal(0)
         point = string_to_point(address)
         search = ['%'+point_to_bytes(string_to_point(address), address_format).hex()+'%' for address_format in list(AddressFormat)]
         addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
-        for input in await self.get_spendable_outputs(address, check_pending_txs=check_pending_txs):
-            balance += input.amount
+        tx_inputs = await self.get_spendable_outputs(address, check_pending_txs=check_pending_txs)
+        balance = sum(tx_input.amount for tx_input in tx_inputs)
         if check_pending_txs:
             async with self.pool.acquire() as connection:
                 txs = await connection.fetch('SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1)', search)

@@ -251,7 +251,7 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
     if transactions:
         check_inputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions], [])
         unspent_outputs = await database.get_unspent_outputs(check_inputs)
-        if len(unspent_outputs) != len(check_inputs):
+        if len(set(check_inputs)) != len(check_inputs) or set(check_inputs) - set(unspent_outputs) != set():
             print('double spend in block')
             print(set(check_inputs) - set(unspent_outputs))
             return False
@@ -261,18 +261,10 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         for transaction in transactions:
             await transaction._fill_transaction_inputs(input_txs)
 
-    used_inputs = []
     for transaction in transactions:
         if not await transaction.verify(check_double_spend=False):
             print(f'transaction {transaction.hash()} has been not verified')
             return False
-        else:
-            tx_inputs = [f"{tx_input.tx_hash}{tx_input.index}" for tx_input in transaction.inputs]
-            if any(used_input in tx_inputs for used_input in used_inputs):
-                await database.remove_pending_transaction(transaction.hash())
-                return False
-            else:
-                used_inputs += tx_inputs
 
     transactions_merkle_tree = get_transactions_merkle_tree(
         transactions) if block_no >= 22500 else get_transactions_merkle_tree_ordered(transactions)
@@ -280,9 +272,6 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         if block_no == 17972 and get_transactions_merkle_tree(transactions) == 'cb52390983d1902bf7d0eb96ed3f8adc359d34b6617dcccd2b610349e0ee8d15':
             return True
         _print('merkle tree does not match')
-        print(transactions)
-        print(merkle_tree)
-        print(get_transactions_merkle_tree(transactions))
         return False
 
     return True

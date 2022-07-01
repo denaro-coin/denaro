@@ -8,11 +8,10 @@ import pickledb
 import requests
 from fastecdsa import keys, curve
 
-from denaro.wallet.utils import string_to_bytes
-
 dir_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, dir_path + "/../..")
 
+from denaro.wallet.utils import string_to_bytes
 from denaro.transactions import Transaction, TransactionOutput, TransactionInput
 from denaro.constants import CURVE
 from denaro.helpers import point_to_string, sha256, string_to_point
@@ -21,7 +20,7 @@ NODE_URL = 'https://denaro-node.gaetano.eu.org'
 
 
 def get_address_info(address: str):
-    request = requests.get(f'{NODE_URL}/get_address_info', {'address': address})
+    request = requests.get(f'{NODE_URL}/get_address_info', {'address': address, 'transactions_count_limit': 0})
     result = request.json()['result']
     tx_inputs = []
     for spendable_tx_input in result['spendable_outputs']:
@@ -29,7 +28,7 @@ def get_address_info(address: str):
         tx_input.amount = Decimal(str(spendable_tx_input['amount']))
         tx_input.public_key = string_to_point(address)
         tx_inputs.append(tx_input)
-    return result['balance'], tx_inputs
+    return Decimal(result['balance']), tx_inputs
 
 
 def create_transaction(private_keys, receiving_address, amount, message: bytes = None):

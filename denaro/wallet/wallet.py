@@ -17,8 +17,9 @@ from denaro.constants import CURVE
 from denaro.helpers import point_to_string, sha256
 
 Database.credentials = {
-    'user': os.environ.get('DENARO_DATABASE_USER', 'denaro'),
-    'password': os.environ.get('DENARO_DATABASE_PASSWORD', '')
+    'user': os.environ.get('DENARO_DATABASE_USER', 'gaetano'),
+    'password': os.environ.get('DENARO_DATABASE_PASSWORD', ''),
+    'database': os.environ.get('DENARO_DATABASE_NAME', 'denaro')
 }
 
 
