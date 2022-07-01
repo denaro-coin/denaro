@@ -8,7 +8,11 @@ import requests
 
 from denaro.constants import ENDIAN
 from denaro.helpers import string_to_bytes, timestamp
-from denaro.manager import get_transactions_merkle_tree
+
+
+def get_transactions_merkle_tree(transactions):
+    return hashlib.sha256(b''.join(bytes.fromhex(transaction) for transaction in transactions)).hexdigest()
+
 
 NODE = sys.argv[3].strip('/')+'/' if len(sys.argv) >= 4 else 'http://localhost:3006/'
 

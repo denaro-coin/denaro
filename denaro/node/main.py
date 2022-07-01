@@ -46,12 +46,9 @@ async def propagate(path: str, args: dict, ignore_url=None):
     send_nodes = \
         (random.choices(active_nodes, k=7) if len(active_nodes) > 7 else active_nodes) + \
         (random.choices(zero_nodes, k=3) if len(zero_nodes) > 3 else zero_nodes)
-    print(args)
-    print(send_nodes)
     aws = []
     for node_url in send_nodes:
         node_interface = NodeInterface(node_url)
-        print('sending to', node_url)
         if node_interface.base_url == self_node.base_url or node_interface.base_url == ignore_node.base_url:
             continue
         aws.append(node_interface.request(path, args, self_node.url))

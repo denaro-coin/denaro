@@ -265,7 +265,6 @@ class Database:
             block_hash = block['hash']
             txs = []
             if OLD_BLOCKS_TRANSACTIONS_ORDER.exists(block_hash):
-                print(f'usando json per blocco {block_hash}')
                 txs = OLD_BLOCKS_TRANSACTIONS_ORDER.get(block_hash)
                 # todo remove those from list?
             else:
