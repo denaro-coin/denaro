@@ -8,6 +8,7 @@ from icecream import ic
 
 from . import Database
 from .constants import MAX_SUPPLY, ENDIAN, MAX_BLOCK_SIZE_HEX
+from .database import OLD_BLOCKS_TRANSACTIONS_ORDER
 from .helpers import sha256, timestamp, bytes_to_string, string_to_bytes
 from .transactions import CoinbaseTransaction, Transaction
 
@@ -304,6 +305,8 @@ async def create_block(block_content: str, transactions: List[Transaction], last
 
     try:
         await database.add_transactions(transactions, block_hash)
+        if len(transactions) > 1 and block_no < 22500:
+            OLD_BLOCKS_TRANSACTIONS_ORDER.set(block_hash, [transaction.hex() for transaction in transactions])
     except Exception as e:
         print(f'a transaction has not been added in block', e)
         await database.delete_block(block_no)

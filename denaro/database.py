@@ -1,14 +1,19 @@
+import os
 from datetime import datetime
 from decimal import Decimal
 from statistics import mean
 from typing import List, Union, Tuple
 
 import asyncpg
+import pickledb
 from asyncpg import Connection, Pool, UndefinedColumnError, UndefinedTableError
 
 from .constants import MAX_BLOCK_SIZE_HEX, SMALLEST
 from .helpers import sha256, point_to_string, string_to_point, point_to_bytes, AddressFormat, normalize_block
 from .transactions import Transaction, CoinbaseTransaction, TransactionInput
+
+dir_path = os.path.dirname(os.path.realpath(__file__))
+OLD_BLOCKS_TRANSACTIONS_ORDER = pickledb.load(dir_path + '/old_block_transactions_order.json', True)
 
 
 class Database:
@@ -257,11 +262,17 @@ class Database:
         size = 0
         for block in blocks:
             block = normalize_block(block)
+            block_hash = block['hash']
             txs = []
-            for transaction in transactions.copy():
-                if transaction['block_hash'] == block['hash']:
-                    transactions.remove(transaction)
-                    txs.append(transaction['tx_hex'])
+            if OLD_BLOCKS_TRANSACTIONS_ORDER.exists(block_hash):
+                print(f'usando json per blocco {block_hash}')
+                txs = OLD_BLOCKS_TRANSACTIONS_ORDER.get(block_hash)
+                # todo remove those from list?
+            else:
+                for transaction in transactions.copy():
+                    if transaction['block_hash'] == block['hash']:
+                        transactions.remove(transaction)
+                        txs.append(transaction['tx_hex'])
             size += sum(len(tx) for tx in txs)
             if size > MAX_BLOCK_SIZE_HEX * 3:
                 break
