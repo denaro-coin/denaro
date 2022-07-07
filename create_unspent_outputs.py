@@ -3,13 +3,11 @@ from os import environ
 
 from asyncpg import UndefinedTableError
 
-import denaro
-from denaro import Database, node
-from denaro.node.main import sync_blockchain
+from denaro import Database
 
 
 async def run():
-    db = denaro.node.main.db = await Database.create(
+    db: Database = await Database.create(
         user=environ.get('DENARO_DATABASE_USER', 'denaro'),
         password=environ.get('DENARO_DATABASE_PASSWORD', ''),
         database=environ.get('DENARO_DATABASE_NAME', 'denaro'),

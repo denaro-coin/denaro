@@ -26,7 +26,6 @@ class Database:
     @staticmethod
     async def create(user='denaro', password='', database='denaro', host='127.0.0.1', ignore: bool = False):
         self = Database()
-        #self.connection = await asyncpg.connect(user=user, password=password, database=database, host=host)
         self.pool = await asyncpg.create_pool(
             user=user,
             password=password,
