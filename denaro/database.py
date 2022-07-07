@@ -54,8 +54,12 @@ class Database:
                     print('Adding pending transactions spent outputs')
                     await self.add_transactions_pending_spent_outputs([await Transaction.from_hex(tx['tx_hex'], False) for tx in txs])
                     print('Done.')
-        async with self.pool.acquire() as connection:
-            res = await connection.fetchrow('SELECT outputs_addresses FROM transactions WHERE outputs_addresses IS NULL AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs);')
+                try:
+                    await connection.fetchrow('SELECT address FROM unspent_outputs LIMIT 1')
+                except UndefinedColumnError:
+                    await connection.execute('ALTER TABLE unspent_outputs ADD COLUMN address TEXT NULL')
+                    await self.set_unspent_outputs_addresses()
+                res = await connection.fetchrow('SELECT outputs_addresses FROM transactions WHERE outputs_addresses IS NULL AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs);')
         self.is_indexed = res is None
 
         Database.instance = self
@@ -292,7 +296,10 @@ class Database:
 
     async def add_unspent_outputs(self, outputs: List[Tuple[str, int]]) -> None:
         async with self.pool.acquire() as connection:
-            await connection.executemany('INSERT INTO unspent_outputs (tx_hash, index) VALUES ($1, $2)', outputs)
+            if len(outputs[0]) == 2:
+                await connection.executemany('INSERT INTO unspent_outputs (tx_hash, index) VALUES ($1, $2)', outputs)
+            elif len(outputs[0]) == 3:
+                await connection.executemany('INSERT INTO unspent_outputs (tx_hash, index, address) VALUES ($1, $2, $3)', outputs)
 
     async def add_pending_spent_outputs(self, outputs: List[Tuple[str, int]]) -> None:
         async with self.pool.acquire() as connection:
@@ -304,7 +311,7 @@ class Database:
             await connection.executemany('INSERT INTO pending_spent_outputs (tx_hash, index) VALUES ($1, $2)', outputs)
 
     async def add_unspent_transactions_outputs(self, transactions: List[Transaction]) -> None:
-        outputs = sum([[(transaction.hash(), index) for index in range(len(transaction.outputs))] for transaction in transactions], [])
+        outputs = sum([[(transaction.hash(), index, output.address) for index, output in enumerate(transaction.outputs)] for transaction in transactions], [])
         await self.add_unspent_outputs(outputs)
 
     async def remove_unspent_outputs(self, transactions: List[Transaction]) -> None:
@@ -326,6 +333,11 @@ class Database:
         async with self.pool.acquire() as connection:
             results = await connection.fetch('SELECT tx_hash, index FROM pending_spent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', outputs)
             return [(row['tx_hash'], row['index']) for row in results]
+
+    async def set_unspent_outputs_addresses(self):
+        assert self.is_indexed, 'cannot set unspent outputs addresses if addresses are not indexed'
+        async with self.pool.acquire() as connection:
+            await connection.execute("UPDATE unspent_outputs SET address = (SELECT outputs_addresses[index + 1] FROM transactions where tx_hash = unspent_outputs.tx_hash)")
 
     async def get_unspent_outputs_from_all_transactions(self):
         async with self.pool.acquire() as connection:
@@ -373,35 +385,13 @@ class Database:
         addresses.reverse()
         search.reverse()
         async with self.pool.acquire() as connection:
-            if self.is_indexed:
-                txs = await connection.fetch('SELECT tx_hash, tx_hex, outputs_addresses, outputs_amounts FROM transactions WHERE $1 && outputs_addresses AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', addresses)
+            if await connection.fetchrow('SELECT tx_hash, index FROM unspent_outputs WHERE address IS NULL') is not None:
+                await self.set_unspent_outputs_addresses()
+            if not check_pending_txs:
+                unspent_outputs = await connection.fetch('SELECT unspent_outputs.tx_hash, index, transactions.outputs_amounts[index + 1] AS amount FROM unspent_outputs INNER JOIN transactions ON (transactions.tx_hash = unspent_outputs.tx_hash) WHERE address = ANY($1)', addresses)
             else:
-                txs = await connection.fetch('SELECT tx_hash, tx_hex, outputs_addresses, outputs_amounts FROM transactions WHERE tx_hex LIKE ANY($1) AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs)', search)
-            spender_txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses) if check_pending_txs else []
-        outputs = {}
-        for tx in txs:
-            tx_hash = tx['tx_hash']
-            if tx['outputs_addresses'] is None:
-                tx = dict(tx)
-                transaction = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
-                tx['outputs_addresses'] = [tx_output.address for tx_output in transaction.outputs]
-                tx['outputs_amounts'] = [tx_output.amount * SMALLEST for tx_output in transaction.outputs]
-                async with self.pool.acquire() as connection:
-                    await connection.execute("UPDATE transactions SET outputs_addresses = $1, outputs_amounts = $2 WHERE tx_hash = $3", tx['outputs_addresses'], tx['outputs_amounts'], tx_hash)
-                print(tx['outputs_addresses'])
-            for i, tx_output_address in enumerate(tx['outputs_addresses']):
-                if tx_output_address in addresses:
-                    tx_input = TransactionInput(tx_hash, i, public_key=point, amount=tx['outputs_amounts'][i] / Decimal(SMALLEST))
-                    outputs[(tx_hash, i)] = tx_input
-        for spender_tx in spender_txs:
-            spender_tx = await Transaction.from_hex(spender_tx['tx_hex'], check_signatures=False)
-            for tx_input in spender_tx.inputs:
-                if (tx_input.tx_hash, tx_input.index) in outputs.keys():
-                    del outputs[(tx_input.tx_hash, tx_input.index)]
-
-        unspent_outputs = await self.get_unspent_outputs(outputs.keys())
-
-        return [outputs[unspent_output] for unspent_output in unspent_outputs]
+                unspent_outputs = await connection.fetch('SELECT unspent_outputs.tx_hash, index, transactions.outputs_amounts[index + 1] AS amount FROM unspent_outputs INNER JOIN transactions ON (transactions.tx_hash = unspent_outputs.tx_hash) WHERE address = ANY($1) AND NOT (unspent_outputs.tx_hash = ANY(SELECT tx_hash FROM pending_spent_outputs))', addresses)
+        return [TransactionInput(tx_hash, index, amount=Decimal(amount) / SMALLEST, public_key=point) for tx_hash, index, amount in unspent_outputs]
 
     async def get_address_balance(self, address: str, check_pending_txs: bool = False) -> Decimal:
         point = string_to_point(address)

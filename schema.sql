@@ -25,7 +25,8 @@ CREATE TYPE tx_output AS (
 
 CREATE TABLE IF NOT EXISTS unspent_outputs (
 	tx_hash CHAR(64) REFERENCES transactions(tx_hash) ON DELETE CASCADE,
-	index SMALLINT NOT NULL
+	index SMALLINT NOT NULL,
+	address TEXT NULL
 );
 
 CREATE TABLE IF NOT EXISTS pending_transactions (
