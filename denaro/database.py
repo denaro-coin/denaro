@@ -54,13 +54,14 @@ class Database:
                     print('Adding pending transactions spent outputs')
                     await self.add_transactions_pending_spent_outputs([await Transaction.from_hex(tx['tx_hex'], False) for tx in txs])
                     print('Done.')
+                res = await connection.fetchrow('SELECT outputs_addresses FROM transactions WHERE outputs_addresses IS NULL AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs);')
+                self.is_indexed = res is None
                 try:
                     await connection.fetchrow('SELECT address FROM unspent_outputs LIMIT 1')
                 except UndefinedColumnError:
                     await connection.execute('ALTER TABLE unspent_outputs ADD COLUMN address TEXT NULL')
                     await self.set_unspent_outputs_addresses()
-                res = await connection.fetchrow('SELECT outputs_addresses FROM transactions WHERE outputs_addresses IS NULL AND tx_hash = ANY(SELECT tx_hash FROM unspent_outputs);')
-        self.is_indexed = res is None
+
 
         Database.instance = self
         return self
