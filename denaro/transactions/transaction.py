@@ -127,7 +127,7 @@ class Transaction:
         return (self.outputs or self.hash() == '915ddf143e14647ba1e04c44cf61e57084254c44cd4454318240f359a414065c') and all(tx_output.verify() for tx_output in self.outputs)
 
     async def verify(self, check_double_spend: bool = True) -> bool:
-        if not self._verify_double_spend_same_transaction():
+        if check_double_spend and not self._verify_double_spend_same_transaction():
             print('double spend inside same transaction')
             return False
 
@@ -142,8 +142,9 @@ class Transaction:
 
         input_amount = 0
         for tx_input in self.inputs:
-            related_output = await tx_input.get_related_output()
-            input_amount += related_output.amount
+            if not tx_input.amount:
+                await tx_input.get_related_output()
+            input_amount += tx_input.amount
 
         if not self._verify_outputs():
             print('invalid outputs')
