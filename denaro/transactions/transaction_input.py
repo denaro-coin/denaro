@@ -59,8 +59,8 @@ class TransactionInput:
         # print('verifying with', point_to_string(public_key))
 
         return \
-            ecdsa.verify(self.signed, input_tx, public_key, CURVE) or \
-            ecdsa.verify(self.signed, bytes.fromhex(input_tx), public_key, CURVE)
+            ecdsa.verify(self.signed, bytes.fromhex(input_tx), public_key, CURVE) or \
+            ecdsa.verify(self.signed, input_tx, public_key, CURVE)
 
     @property
     def as_dict(self):
