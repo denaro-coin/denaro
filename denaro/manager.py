@@ -150,8 +150,8 @@ async def clear_pending_transactions(transactions=None):
     double_spend_inputs = set(used_inputs) - set(unspent_outputs)
     if double_spend_inputs == set(used_inputs):
         await database.remove_pending_transactions()
-    else:
-        await database.remove_pending_transactions_by_contains([tx_input[0] + bytes(tx_input[1]).hex() for tx_input in double_spend_inputs])
+    elif double_spend_inputs:
+        await database.remove_pending_transactions_by_contains([tx_input[0] + bytes([tx_input[1]]).hex() for tx_input in double_spend_inputs])
 
 
 def get_transactions_merkle_tree_ordered(transactions: List[Union[Transaction, str]]):
