@@ -114,13 +114,19 @@ class Transaction:
 
     async def _check_signature(self):
         tx_hex = self.hex(False)
+        checked_signatures = []
         for tx_input in self.inputs:
             if tx_input.signed is None:
                 print('not signed')
                 return False
+            await tx_input.get_public_key()
+            signature = (tx_input.public_key, tx_input.signed)
+            if signature in checked_signatures:
+                continue
             if not await tx_input.verify(tx_hex):
                 print('signature not valid')
                 return False
+            checked_signatures.append(signature)
         return True
 
     def _verify_outputs(self):
