@@ -175,8 +175,8 @@ async def startup():
 
 
 @app.get("/")
-def read_root():
-    return {"version": VERSION, "timestamp": timestamp()}
+async def root():
+    return {"version": VERSION, "unspent_outputs_hash": await db.get_unspent_outputs_hash()}
 
 
 @app.middleware("http")

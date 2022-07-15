@@ -330,6 +330,11 @@ class Database:
             results = await connection.fetch('SELECT tx_hash, index FROM unspent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', outputs)
             return [(row['tx_hash'], row['index']) for row in results]
 
+    async def get_unspent_outputs_hash(self) -> str:
+        async with self.pool.acquire() as connection:
+            rows = await connection.fetch('SELECT tx_hash, index FROM unspent_outputs ORDER BY tx_hash, index')
+            return sha256(''.join(row['tx_hash'] + bytes([row['index']]).hex() for row in rows))
+
     async def get_pending_spent_outputs(self, outputs: List[Tuple[str, int]]) -> List[Tuple[str, int]]:
         async with self.pool.acquire() as connection:
             results = await connection.fetch('SELECT tx_hash, index FROM pending_spent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', outputs)
