@@ -396,7 +396,7 @@ class Database:
             if not check_pending_txs:
                 unspent_outputs = await connection.fetch('SELECT unspent_outputs.tx_hash, index, transactions.outputs_amounts[index + 1] AS amount FROM unspent_outputs INNER JOIN transactions ON (transactions.tx_hash = unspent_outputs.tx_hash) WHERE address = ANY($1)', addresses)
             else:
-                unspent_outputs = await connection.fetch('SELECT unspent_outputs.tx_hash, index, transactions.outputs_amounts[index + 1] AS amount FROM unspent_outputs INNER JOIN transactions ON (transactions.tx_hash = unspent_outputs.tx_hash) WHERE address = ANY($1) AND NOT (unspent_outputs.tx_hash = ANY(SELECT tx_hash FROM pending_spent_outputs))', addresses)
+                unspent_outputs = await connection.fetch('SELECT unspent_outputs.tx_hash, index, transactions.outputs_amounts[index + 1] AS amount FROM unspent_outputs INNER JOIN transactions ON (transactions.tx_hash = unspent_outputs.tx_hash) WHERE address = ANY($1) AND CONCAT(unspent_outputs.tx_hash, unspent_outputs.index) != ALL(SELECT CONCAT(pending_spent_outputs.tx_hash, pending_spent_outputs.index) FROM pending_spent_outputs)', addresses, timeout=60)
         return [TransactionInput(tx_hash, index, amount=Decimal(amount) / SMALLEST, public_key=point) for tx_hash, index, amount in unspent_outputs]
 
     async def get_address_balance(self, address: str, check_pending_txs: bool = False) -> Decimal:
