@@ -34,6 +34,7 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 db: Database = None
 NodesManager.init()
 started = False
+is_syncing = False
 self_url = None
 
 print = ic
@@ -190,7 +191,7 @@ async def root():
 
 @app.middleware("http")
 async def middleware(request: Request, call_next):
-    global started, self_url, synced
+    global started, self_url
     nodes = NodesManager.get_recent_nodes()
     hostname = request.base_url.hostname
 
@@ -328,7 +329,12 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
 @app.get("/sync_blockchain")
 @limiter.limit("10/minute")
 async def sync(request: Request, node_url: str = None):
+    global is_syncing
+    if is_syncing:
+        return {'ok': False, 'error': 'Node is already syncing'}
+    is_syncing = True
     await sync_blockchain(node_url)
+    is_syncing = False
 
 
 LAST_PENDING_TRANSACTIONS_CLEAN = [0]
