@@ -4,13 +4,18 @@ from collections import deque
 from os import environ
 
 from asyncpg import UniqueViolationError
-from fastapi import FastAPI, Body
+from fastapi import FastAPI, Body, Query
 from httpx import TimeoutException
 from icecream import ic
 from starlette.background import BackgroundTasks
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
+
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+
 
 from denaro.helpers import timestamp, sha256, transaction_to_json
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, \
@@ -21,7 +26,11 @@ from denaro.transactions import Transaction, CoinbaseTransaction
 from denaro import Database
 from denaro.constants import VERSION, ENDIAN
 
+
+limiter = Limiter(key_func=get_remote_address)
 app = FastAPI()
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 db: Database = None
 NodesManager.init()
 started = False
@@ -258,6 +267,7 @@ async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: s
 
 @app.post("/push_block")
 @app.get("/push_block")
+@limiter.limit("3/minute")
 async def push_block(request: Request, background_tasks: BackgroundTasks, block_content: str = '', txs='', body=Body(False), id: int = None):
     if body:
         txs = body['txs']
@@ -316,7 +326,8 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
 
 
 @app.get("/sync_blockchain")
-async def sync(node_url: str = None):
+@limiter.limit("10/minute")
+async def sync(request: Request, node_url: str = None):
     await sync_blockchain(node_url)
 
 
@@ -343,7 +354,8 @@ async def get_mining_info(background_tasks: BackgroundTasks):
 
 
 @app.get("/get_address_info")
-async def get_address_info(address: str, transactions_count_limit: int = 5, show_pending: bool = False, verify: bool = False):
+@limiter.limit("1/second")
+async def get_address_info(request: Request, address: str, transactions_count_limit: int = Query(default=5, le=50), show_pending: bool = False, verify: bool = False):
     outputs = await db.get_spendable_outputs(address)
     balance = sum(output.amount for output in outputs)
     return {'ok': True, 'result': {
@@ -356,7 +368,8 @@ async def get_address_info(address: str, transactions_count_limit: int = 5, show
 
 
 @app.get("/add_node")
-async def add_node(url: str, background_tasks: BackgroundTasks):
+@limiter.limit("10/minute")
+async def add_node(request: Request, url: str, background_tasks: BackgroundTasks):
     nodes = NodesManager.get_nodes()
     url = url.strip('/')
     if url == self_url:
@@ -385,7 +398,8 @@ async def get_pending_transactions():
 
 
 @app.get("/get_transaction")
-async def get_transaction(tx_hash: str, verify: bool = False):
+@limiter.limit("2/second")
+async def get_transaction(request: Request, tx_hash: str, verify: bool = False):
     tx = await db.get_transaction(tx_hash) or await db.get_pending_transaction(tx_hash)
     if tx is None:
         return {'ok': False, 'error': 'Transaction not found'}
@@ -394,7 +408,8 @@ async def get_transaction(tx_hash: str, verify: bool = False):
 
 
 @app.get("/get_block")
-async def get_block(block: str, full_transactions: bool = False):
+@limiter.limit("30/minute")
+async def get_block(request: Request, block: str, full_transactions: bool = False):
     if block.isdecimal():
         block_info = await db.get_block_by_id(int(block))
         if block_info is not None:
@@ -416,6 +431,7 @@ async def get_block(block: str, full_transactions: bool = False):
 
 
 @app.get("/get_blocks")
-async def get_blocks(offset: int, limit: int):
+@limiter.limit("10/minute")
+async def get_blocks(request: Request, offset: int, limit: int = Query(default=..., le=1000)):
     blocks = await db.get_blocks(offset, limit)
     return {'ok': True, 'result': blocks}
