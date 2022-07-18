@@ -21,7 +21,7 @@ class NodesManager:
     nodes: list = None
     db = db
 
-    timeout = httpx.Timeout(1)
+    timeout = httpx.Timeout(3)
     client = httpx.Client(timeout=timeout)
     async_client = httpx.AsyncClient(timeout=timeout)
 
@@ -29,7 +29,7 @@ class NodesManager:
     def init():
         NodesManager.db._loaddb()
         NodesManager.nodes = NodesManager.db.get('nodes') or ['https://denaro-node.gaetano.eu.org']
-        NodesManager.last_messages = NodesManager.db.get('last_messages') or {}
+        NodesManager.last_messages = NodesManager.db.get('last_messages') or {'https://denaro-node.gaetano.eu.org': timestamp()}
 
     @staticmethod
     def sync():
