@@ -252,8 +252,9 @@ async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: s
     if body and tx_hex is None:
         tx_hex = body['tx_hex']
     tx = await Transaction.from_hex(tx_hex)
+    if tx.hash() in transactions_cache:
+        return {'ok': False, 'error': 'Transaction just added'}
     try:
-        assert tx.hash() not in transactions_cache
         if await db.add_pending_transaction(tx):
             if 'Sender-Node' in request.headers:
                 NodesManager.update_last_message(request.headers['Sender-Node'])
@@ -262,7 +263,7 @@ async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: s
             return {'ok': True, 'result': 'Transaction has been accepted'}
         else:
             return {'ok': False, 'error': 'Transaction has not been added'}
-    except (UniqueViolationError, AssertionError):
+    except UniqueViolationError:
         return {'ok': False, 'error': 'Transaction already present'}
 
 
