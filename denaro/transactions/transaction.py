@@ -146,22 +146,15 @@ class Transaction:
         if not await self._check_signature():
             return False
 
-        input_amount = 0
-        for tx_input in self.inputs:
-            if not tx_input.amount:
-                await tx_input.get_related_output()
-            input_amount += tx_input.amount
-
         if not self._verify_outputs():
             print('invalid outputs')
             return False
-        output_amount = sum(tx_output.amount for tx_output in self.outputs)
 
-        if input_amount >= output_amount:
-            self.fees = input_amount - output_amount
-            assert (self.fees * SMALLEST) % 1 == 0.0
-            assert self.fees >= 0
-        return input_amount >= output_amount
+        if await self.get_fees() < 0:
+            print('We are not the Federal Reserve')
+            return False
+
+        return True
 
     async def verify_pending(self):
         return await self.verify() and await self.verify_double_spend_pending()
@@ -178,6 +171,19 @@ class Transaction:
             if input.private_key is not None:
                 input.sign(self.hex(False))
         return self
+
+    async def get_fees(self):
+        input_amount = 0
+        for tx_input in self.inputs:
+            if not tx_input.amount:
+                await tx_input.get_related_output()
+            input_amount += tx_input.amount
+
+        output_amount = sum(tx_output.amount for tx_output in self.outputs)
+
+        self.fees = input_amount - output_amount
+        assert (self.fees * SMALLEST) % 1 == 0.0
+        return self.fees
 
     @staticmethod
     async def from_hex(hexstring: str, check_signatures: bool = True):
