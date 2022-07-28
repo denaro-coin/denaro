@@ -287,10 +287,10 @@ class Database:
             block = await connection.fetchrow('SELECT * FROM blocks WHERE id = $1', block_id)
         return normalize_block(block) if block is not None else None
 
-    async def get_block_transactions(self, block_hash: str, check_signatures: bool = True) -> List[Union[Transaction, CoinbaseTransaction]]:
+    async def get_block_transactions(self, block_hash: str, check_signatures: bool = True, hex_only: bool = False) -> List[Union[Transaction, CoinbaseTransaction]]:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch('SELECT * FROM transactions WHERE block_hash = $1', block_hash)
-        return [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs] if txs is not None else None
+        return [tx['tx_hex'] if hex_only else await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
 
     async def add_unspent_outputs(self, outputs: List[Tuple[str, int]]) -> None:
         async with self.pool.acquire() as connection:
