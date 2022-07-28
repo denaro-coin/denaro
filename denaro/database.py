@@ -262,22 +262,19 @@ class Database:
         async with self.pool.acquire() as connection:
             transactions: list = await connection.fetch(f'SELECT tx_hex, block_hash FROM transactions WHERE block_hash = ANY(SELECT hash FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2)', offset, limit)
             blocks = await connection.fetch(f'SELECT * FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2', offset, limit)
+
+        index = {block['hash']: [] for block in blocks}
+        for transaction in transactions:
+            index[transaction['block_hash']].append(transaction['tx_hex'])
+
         result = []
         size = 0
         for block in blocks:
             block = normalize_block(block)
             block_hash = block['hash']
-            txs = []
-            if OLD_BLOCKS_TRANSACTIONS_ORDER.exists(block_hash):
-                txs = OLD_BLOCKS_TRANSACTIONS_ORDER.get(block_hash)
-                # todo remove those from list?
-            else:
-                for transaction in transactions.copy():
-                    if transaction['block_hash'] == block['hash']:
-                        transactions.remove(transaction)
-                        txs.append(transaction['tx_hex'])
+            txs = OLD_BLOCKS_TRANSACTIONS_ORDER.get(block_hash) or index[block_hash]
             size += sum(len(tx) for tx in txs)
-            if size > MAX_BLOCK_SIZE_HEX * 3:
+            if size > MAX_BLOCK_SIZE_HEX * 8:
                 break
             result.append({
                 'block': block,
