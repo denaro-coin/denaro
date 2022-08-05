@@ -361,7 +361,7 @@ async def get_mining_info(background_tasks: BackgroundTasks):
 
 
 @app.get("/get_address_info")
-@limiter.limit("1/second")
+@limiter.limit("2/second")
 async def get_address_info(request: Request, address: str, transactions_count_limit: int = Query(default=5, le=50), show_pending: bool = False, verify: bool = False):
     outputs = await db.get_spendable_outputs(address)
     balance = sum(output.amount for output in outputs)
