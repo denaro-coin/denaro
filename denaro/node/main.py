@@ -269,7 +269,6 @@ async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: s
 
 @app.post("/push_block")
 @app.get("/push_block")
-@limiter.limit("3/minute")
 async def push_block(request: Request, background_tasks: BackgroundTasks, block_content: str = '', txs='', body=Body(False), id: int = None):
     if body:
         txs = body['txs']
