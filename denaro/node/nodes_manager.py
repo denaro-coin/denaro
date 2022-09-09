@@ -42,7 +42,7 @@ class NodesManager:
             res = ''
             async for chunk in response.aiter_text():
                 res += chunk
-                if len(res) > MAX_BLOCK_SIZE_HEX * 4:
+                if len(res) > MAX_BLOCK_SIZE_HEX * 10:
                     break
         return json.loads(res)
 
