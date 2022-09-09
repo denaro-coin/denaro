@@ -146,6 +146,10 @@ class Database:
             txs = await connection.fetch(f'SELECT LENGTH(tx_hex) as size FROM pending_transactions')
         return int(sum([tx['size'] for tx in txs]) / MAX_BLOCK_SIZE_HEX + 1)
 
+    async def clear_duplicate_pending_transactions(self):
+        async with self.pool.acquire() as connection:
+            await connection.execute('DELETE FROM pending_transactions WHERE tx_hash = ANY(SELECT tx_hash FROM transactions)')
+
     async def add_transaction(self, transaction: Union[Transaction, CoinbaseTransaction], block_hash: str):
         await self.add_transactions([transaction], block_hash)
 

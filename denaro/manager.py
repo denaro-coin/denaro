@@ -131,6 +131,7 @@ def __check():
 
 async def clear_pending_transactions(transactions=None):
     database: Database = Database.instance
+    await database.clear_duplicate_pending_transactions()
     transactions = transactions or await database.get_pending_transactions_limit(hex_only=True)
     used_inputs = []
     for transaction in transactions:
@@ -140,11 +141,10 @@ async def clear_pending_transactions(transactions=None):
         else:
             tx_hash = sha256(transaction.hex())
         tx_inputs = [(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs]
-        # fixme
-        """if any(used_input in tx_inputs for used_input in used_inputs):
+        if any(used_input in tx_inputs for used_input in used_inputs):
             await database.remove_pending_transaction(tx_hash)
-            print('removed')
-            return await clear_pending_transactions()"""
+            print(f'removed {tx_hash}')
+            return await clear_pending_transactions()
         used_inputs += tx_inputs
     unspent_outputs = await database.get_unspent_outputs(used_inputs)
     double_spend_inputs = set(used_inputs) - set(unspent_outputs)
