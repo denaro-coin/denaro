@@ -1,6 +1,7 @@
 import json
 import os
 from os.path import dirname, exists
+from random import choices
 
 import httpx
 import pickledb
@@ -9,6 +10,8 @@ from ..constants import MAX_BLOCK_SIZE_HEX
 from ..helpers import timestamp
 
 ACTIVE_NODES_DELTA = 60 * 60 * 24 * 7  # 7 days
+INACTIVE_NODES_DELTA = 60 * 60 * 24 * 90  # 3 months
+MAX_NODES_COUNT = 100
 
 path = dirname(os.path.realpath(__file__)) + '/nodes.json'
 if not exists(path):
@@ -22,7 +25,6 @@ class NodesManager:
     db = db
 
     timeout = httpx.Timeout(3)
-    client = httpx.Client(timeout=timeout)
     async_client = httpx.AsyncClient(timeout=timeout)
 
     @staticmethod
@@ -57,9 +59,9 @@ class NodesManager:
     @staticmethod
     def add_node(node: str):
         node = node.strip('/')
-        if len(NodesManager.nodes) > 1000 or len(NodesManager.get_zero_nodes()) > 10:
-            NodesManager.clear_dead_nodes()
-        if len(NodesManager.nodes) > 1000:
+        if len(NodesManager.nodes) > MAX_NODES_COUNT or len(NodesManager.get_zero_nodes()) > 10:
+            NodesManager.clear_old_nodes()
+        if len(NodesManager.nodes) > MAX_NODES_COUNT:
             raise Exception('Too many nodes')
         NodesManager.init()
         NodesManager.nodes.append(node)
@@ -68,8 +70,8 @@ class NodesManager:
     @staticmethod
     def get_nodes():
         NodesManager.init()
+        NodesManager.nodes = [node.strip('/') for node in NodesManager.nodes if len(node)]
         NodesManager.nodes = list(dict.fromkeys(NodesManager.nodes))
-        NodesManager.nodes = [node.strip('/') for node in NodesManager.nodes]
         NodesManager.sync()
         return NodesManager.nodes
 
@@ -83,9 +85,15 @@ class NodesManager:
         return [node for node in NodesManager.get_nodes() if NodesManager.get_last_message(node) == 0]
 
     @staticmethod
-    def clear_dead_nodes():
+    def get_propagate_nodes():
+        active_nodes = NodesManager.get_recent_nodes()
+        zero_nodes = NodesManager.get_zero_nodes()
+        return (choices(active_nodes, k=10) if len(active_nodes) > 10 else active_nodes) + (choices(zero_nodes, k=10) if len(zero_nodes) > 10 else zero_nodes)
+
+    @staticmethod
+    def clear_old_nodes():
         NodesManager.init()
-        NodesManager.nodes = [node for node in NodesManager.get_nodes() if NodesManager.get_last_message(node) > 0]
+        NodesManager.nodes = [node for node in NodesManager.get_nodes() if NodesManager.get_last_message(node) > timestamp() - INACTIVE_NODES_DELTA]
         NodesManager.sync()
 
     @staticmethod

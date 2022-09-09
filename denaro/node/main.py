@@ -51,13 +51,8 @@ async def propagate(path: str, args: dict, ignore_url=None):
     global self_url
     self_node = NodeInterface(self_url or '')
     ignore_node = NodeInterface(ignore_url or '')
-    active_nodes = NodesManager.get_recent_nodes()
-    zero_nodes = NodesManager.get_zero_nodes()
-    send_nodes = \
-        (random.choices(active_nodes, k=7) if len(active_nodes) > 7 else active_nodes) + \
-        (random.choices(zero_nodes, k=3) if len(zero_nodes) > 3 else zero_nodes)
     aws = []
-    for node_url in send_nodes:
+    for node_url in NodesManager.get_propagate_nodes():
         node_interface = NodeInterface(node_url)
         if node_interface.base_url == self_node.base_url or node_interface.base_url == ignore_node.base_url:
             continue
@@ -155,6 +150,8 @@ async def _sync_blockchain(node_url: str = None):
             return
         try:
             assert await create_blocks(blocks)
+            if node_url is not None:
+                NodesManager.update_last_message(node_url)
         except Exception as e:
             print(e)
             if local_cache is not None:
@@ -169,8 +166,6 @@ async def sync_blockchain(node_url: str = None):
     except Exception as e:
         print(e)
         return
-    if node_url is not None:
-        NodesManager.update_last_message(node_url)
 
 
 @app.on_event("startup")
