@@ -265,6 +265,8 @@ async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: s
 @app.post("/push_block")
 @app.get("/push_block")
 async def push_block(request: Request, background_tasks: BackgroundTasks, block_content: str = '', txs='', body=Body(False), id: int = None):
+    if is_syncing:
+        return {'ok': False, 'error': 'Node is already syncing'}
     if body:
         txs = body['txs']
         if 'block_content' in body:
