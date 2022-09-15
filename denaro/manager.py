@@ -254,8 +254,12 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         unspent_outputs = await database.get_unspent_outputs(check_inputs)
         if len(set(check_inputs)) != len(check_inputs) or set(check_inputs) - set(unspent_outputs) != set():
             print('double spend in block')
-            print(set(check_inputs) - set(unspent_outputs))
-            return False
+            print(spent_outputs := set(check_inputs) - set(unspent_outputs))
+            if len(spent_outputs) <= 5:
+                if await database.get_transaction_hash_by_contains_multi(tx_input[0] + bytes([tx_input[1]]).hex() for tx_input in spent_outputs) is not None:
+                    return False
+            else:
+                return False
 
         input_txs_hash = sum([[tx_input.tx_hash for tx_input in transaction.inputs] for transaction in transactions], [])
         input_txs = await database.get_transactions(input_txs_hash)
