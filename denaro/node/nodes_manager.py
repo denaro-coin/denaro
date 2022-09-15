@@ -70,6 +70,7 @@ class NodesManager:
     @staticmethod
     def get_nodes():
         NodesManager.init()
+        NodesManager.nodes.extend(NodesManager.last_messages.keys())
         NodesManager.nodes = [node.strip('/') for node in NodesManager.nodes if len(node)]
         NodesManager.nodes = list(dict.fromkeys(NodesManager.nodes))
         NodesManager.sync()
