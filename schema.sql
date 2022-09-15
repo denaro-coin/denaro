@@ -41,6 +41,5 @@ CREATE TABLE IF NOT EXISTS pending_spent_outputs (
 	index SMALLINT NOT NULL
 );
 
--- if your user is denaro
--- GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO denaro;
--- GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO denaro;
+CREATE INDEX tx_hash_idx ON unspent_outputs (tx_hash);
+CREATE INDEX block_hash_idx ON transactions (block_hash);
