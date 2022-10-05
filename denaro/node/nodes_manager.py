@@ -126,7 +126,7 @@ class NodeInterface:
     async def request(self, path: str, data: dict, sender_node: str = ''):
         headers = {'Sender-Node': sender_node}
         if path in ('push_block', 'push_tx'):
-            r = await NodesManager.request(f'{self.url}/{path}', method='POST', json=data, headers=headers, timeout=60)
+            r = await NodesManager.request(f'{self.url}/{path}', method='POST', json=data, headers=headers, timeout=10)
         else:
-            r = await NodesManager.request(f'{self.url}/{path}', params=data, headers=headers, timeout=60)
+            r = await NodesManager.request(f'{self.url}/{path}', params=data, headers=headers, timeout=30)
         return r
