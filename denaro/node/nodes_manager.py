@@ -130,3 +130,4 @@ class NodeInterface:
         else:
             r = await NodesManager.request(f'{self.url}/{path}', params=data, headers=headers, timeout=30)
         return r
+        
