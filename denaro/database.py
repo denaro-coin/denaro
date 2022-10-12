@@ -297,6 +297,8 @@ class Database:
         return [tx['tx_hex'] if hex_only else await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
 
     async def add_unspent_outputs(self, outputs: List[Tuple[str, int]]) -> None:
+        if not outputs:
+            return
         async with self.pool.acquire() as connection:
             if len(outputs[0]) == 2:
                 await connection.executemany('INSERT INTO unspent_outputs (tx_hash, index) VALUES ($1, $2)', outputs)
