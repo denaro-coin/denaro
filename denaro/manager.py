@@ -185,7 +185,7 @@ def block_to_bytes(last_block_hash: str, block: dict) -> bytes:
            address_bytes + \
            bytes.fromhex(block['merkle_tree']) + \
            block['timestamp'].to_bytes(4, byteorder=ENDIAN) + \
-           int(block['difficulty'] * 10).to_bytes(2, ENDIAN) \
+           int(float(block['difficulty']) * 10).to_bytes(2, ENDIAN) \
            + block['random'].to_bytes(4, ENDIAN)
 
 
