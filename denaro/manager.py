@@ -229,12 +229,6 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
     if last_block != {} and previous_hash != last_block['hash']:
         return False
 
-    if content_difficulty != difficulty:
-        print('not same difficulty')
-        print(content_difficulty)
-        print(difficulty)
-        return False
-
     if (last_block['timestamp'] if 'timestamp' in last_block else 0) > content_time:
         print('timestamp younger than previous block')
         return False
