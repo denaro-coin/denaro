@@ -175,9 +175,7 @@ class Transaction:
     async def get_fees(self):
         input_amount = 0
         for tx_input in self.inputs:
-            if not tx_input.amount:
-                await tx_input.get_related_output()
-            input_amount += tx_input.amount
+            input_amount += await tx_input.get_amount()
 
         output_amount = sum(tx_output.amount for tx_output in self.outputs)
 

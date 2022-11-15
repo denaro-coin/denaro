@@ -192,6 +192,11 @@ class Database:
             tx.block_hash = res['block_hash']
         return tx
 
+    async def get_transaction_info(self, tx_hash: str) -> dict:
+        async with self.pool.acquire() as connection:
+            res = await connection.fetchrow('SELECT * FROM transactions WHERE tx_hash = $1', tx_hash)
+        return dict(res) if res is not None else None
+
     async def get_pending_transaction(self, tx_hash: str, check_signatures: bool = True) -> Transaction:
         async with self.pool.acquire() as connection:
             res = await connection.fetchrow('SELECT tx_hex FROM pending_transactions WHERE tx_hash = $1', tx_hash)

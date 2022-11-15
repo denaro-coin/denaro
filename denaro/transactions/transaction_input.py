@@ -4,8 +4,8 @@ from typing import Tuple
 from fastecdsa import ecdsa
 from fastecdsa.point import Point
 
-from ..constants import CURVE, ENDIAN
-from ..helpers import point_to_string
+from ..constants import CURVE, ENDIAN, SMALLEST
+from ..helpers import point_to_string, string_to_point
 
 
 class TransactionInput:
@@ -19,6 +19,7 @@ class TransactionInput:
         self.index = index
         self.private_key = private_key
         self.transaction = transaction
+        self.transaction_info = None
         self.amount = amount
         self.public_key = public_key
         if transaction is not None and amount is None:
@@ -27,10 +28,16 @@ class TransactionInput:
     async def get_transaction(self):
         if self.transaction is None:
             from .. import Database
-            tx = await Database.instance.get_transaction(self.tx_hash, check_signatures=False)
-            assert tx is not None
-            self.transaction = tx
+            self.transaction = await Database.instance.get_transaction(self.tx_hash, check_signatures=False)
+            assert self.transaction is not None
         return self.transaction
+
+    async def get_transaction_info(self):
+        if self.transaction_info is None:
+            from .. import Database
+            self.transaction_info = await Database.instance.get_transaction_info(self.tx_hash)
+        assert self.transaction_info is not None
+        return self.transaction_info
 
     async def get_related_output(self):
         tx = await self.get_transaction()
@@ -38,12 +45,26 @@ class TransactionInput:
         self.amount = related_output.amount
         return related_output
 
+    async def get_related_output_info(self):
+        tx = await self.get_transaction_info()
+        related_output = {'address': tx['outputs_addresses'][self.index], 'amount': Decimal(tx['outputs_amounts'][self.index]) / SMALLEST}
+        self.amount = related_output['amount']
+        return related_output
+
+    async def get_amount(self):
+        if self.amount is None:
+            if self.transaction is not None:
+                return self.transaction.outputs[self.index].amount
+            else:
+                await self.get_related_output_info()
+        return self.amount
+
     def sign(self, tx_hex: str, private_key: int = None):
         private_key = private_key if private_key is not None else self.private_key
         self.signed = ecdsa.sign(bytes.fromhex(tx_hex), private_key)
 
     async def get_public_key(self):
-        return self.public_key or (await self.get_related_output()).public_key
+        return self.public_key or string_to_point((await self.get_related_output_info())['address'])
 
     def tobytes(self):
         return bytes.fromhex(self.tx_hash) + self.index.to_bytes(1, ENDIAN)
