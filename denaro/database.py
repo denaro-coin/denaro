@@ -298,8 +298,13 @@ class Database:
 
     async def get_block_transactions(self, block_hash: str, check_signatures: bool = True, hex_only: bool = False) -> List[Union[Transaction, CoinbaseTransaction]]:
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch('SELECT * FROM transactions WHERE block_hash = $1', block_hash)
+            txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE block_hash = $1', block_hash)
         return [tx['tx_hex'] if hex_only else await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
+
+    async def get_block_nice_transactions(self, block_hash: str) -> List[dict]:
+        async with self.pool.acquire() as connection:
+            txs = await connection.fetch('SELECT tx_hash, inputs_addresses FROM transactions WHERE block_hash = $1', block_hash)
+        return [{'hash': tx['tx_hash'], 'is_coinbase': not tx['inputs_addresses']} for tx in txs]
 
     async def add_unspent_outputs(self, outputs: List[Tuple[str, int]]) -> None:
         if not outputs:

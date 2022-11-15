@@ -423,11 +423,10 @@ async def get_block(request: Request, block: str, full_transactions: bool = Fals
         block_hash = block
         block_info = await db.get_block(block_hash)
     if block_info:
-        txs = await db.get_block_transactions(block_hash, hex_only=True)
         return {'ok': True, 'result': {
             'block': block_info,
-            'transactions': txs,
-            'full_transactions': [await transaction_to_json(await Transaction.from_hex(tx)) for tx in txs] if full_transactions else None
+            'transactions': await db.get_block_transactions(block_hash, hex_only=True) if not full_transactions else None,
+            'full_transactions': await db.get_block_nice_transactions(block_hash) if full_transactions else None
         }}
     else:
         return {'ok': False, 'error': 'Block not found'}
