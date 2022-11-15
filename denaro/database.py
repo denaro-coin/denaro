@@ -395,7 +395,7 @@ class Database:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE $1 && inputs_addresses", addresses)
             txs = [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
-        return sum([[tx_input.tx_hash for tx_input in tx.inputs] for tx in txs], [])
+        return sum([[{'tx_hash': tx_input.tx_hash, 'index': tx_input.index} for tx_input in tx.inputs] for tx in txs], [])
 
     async def get_spendable_outputs(self, address: str, check_pending_txs: bool = False) -> List[TransactionInput]:
         point = string_to_point(address)
