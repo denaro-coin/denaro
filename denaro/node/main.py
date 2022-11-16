@@ -2,6 +2,9 @@ import random
 from asyncio import gather
 from collections import deque
 from os import environ
+from dotenv import load_dotenv
+load_dotenv('./.env')
+
 
 from asyncpg import UniqueViolationError
 from fastapi import FastAPI, Body, Query
