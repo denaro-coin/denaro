@@ -13,7 +13,8 @@ Assuming an average transaction to be composed by 5 inputs and 2 outputs, that a
 
 ## Installation
 
-Before installing denaro, you need to create the postgresql database.  
+Before installing denaro, you need to create the PostgreSQL 14 database.
+The database version **must** be v. 14 or the blockchain may not sync.
 You can find the schema in [schema.sql](schema.sql).  
 You have to set environmental variables for database access:
 - `DENARO_DATABASE_USER`, default to `denaro`.  
@@ -23,7 +24,7 @@ You have to set environmental variables for database access:
 
 
 ```bash
-# install postgresql
+# install PostgreSQL 14
 createdb denaro
 ```
 
