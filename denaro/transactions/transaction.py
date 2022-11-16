@@ -14,10 +14,6 @@ print = ic
 
 
 class Transaction:
-    _hex: str = None
-    fees: Decimal = None
-    block_hash: str = None
-
     def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput], message: bytes = None, version: int = None):
         if len(inputs) >= 256:
             raise Exception(f'You can spend max 255 inputs in a single transactions, not {len(inputs)}')
@@ -36,6 +32,9 @@ class Transaction:
         if version > 3:
             raise NotImplementedError()
         self.version = version
+        self._hex: str = None
+        self.fees: Decimal = None
+        self.tx_hash: str = None
 
     def hex(self, full: bool = True):
         inputs, outputs = self.inputs, self.outputs
@@ -77,7 +76,9 @@ class Transaction:
         return self._hex
 
     def hash(self):
-        return sha256(self.hex())
+        if self.tx_hash is None:
+            self.tx_hash = sha256(self.hex())
+        return self.tx_hash
 
     def _verify_double_spend_same_transaction(self):
         used_inputs = []
