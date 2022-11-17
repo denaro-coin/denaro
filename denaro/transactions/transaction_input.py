@@ -59,12 +59,17 @@ class TransactionInput:
                 await self.get_related_output_info()
         return self.amount
 
+    async def get_address(self):
+        if self.transaction is not None:
+            return (await self.get_related_output()).address
+        return (await self.get_related_output_info())['address']
+
     def sign(self, tx_hex: str, private_key: int = None):
         private_key = private_key if private_key is not None else self.private_key
         self.signed = ecdsa.sign(bytes.fromhex(tx_hex), private_key)
 
     async def get_public_key(self):
-        return self.public_key or string_to_point((await self.get_related_output_info())['address'])
+        return self.public_key or string_to_point(await self.get_address())
 
     def tobytes(self):
         return bytes.fromhex(self.tx_hash) + self.index.to_bytes(1, ENDIAN)
