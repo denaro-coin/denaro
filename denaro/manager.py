@@ -256,7 +256,7 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
                 return False
 
         input_txs_hash = sum([[tx_input.tx_hash for tx_input in transaction.inputs] for transaction in transactions], [])
-        input_txs = await database.get_transactions(input_txs_hash)
+        input_txs = await database.get_transactions_info(input_txs_hash)
         for transaction in transactions:
             await transaction._fill_transaction_inputs(input_txs)
 

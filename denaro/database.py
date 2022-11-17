@@ -2,7 +2,7 @@ import os
 from datetime import datetime
 from decimal import Decimal
 from statistics import mean
-from typing import List, Union, Tuple
+from typing import List, Union, Tuple, Dict
 
 import asyncpg
 import pickledb
@@ -196,6 +196,12 @@ class Database:
         async with self.pool.acquire() as connection:
             res = await connection.fetchrow('SELECT * FROM transactions WHERE tx_hash = $1', tx_hash)
         return dict(res) if res is not None else None
+
+    async def get_transactions_info(self, tx_hashes: List[str]) -> Dict[str, dict]:
+        async with self.pool.acquire() as connection:
+            res = await connection.fetch('SELECT * FROM transactions WHERE tx_hash = ANY($1)', tx_hashes)
+        return {res['tx_hash']: dict(res) for res in res}
+
 
     async def get_pending_transaction(self, tx_hash: str, check_signatures: bool = True) -> Transaction:
         async with self.pool.acquire() as connection:

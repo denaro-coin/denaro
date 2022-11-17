@@ -107,11 +107,11 @@ class Transaction:
         if not check_inputs:
             return
         if txs is None:
-            txs = await Database.instance.get_transactions(check_inputs)
+            txs = await Database.instance.get_transactions_info(check_inputs)
         for tx_input in self.inputs:
             tx_hash = tx_input.tx_hash
             if tx_hash in txs:
-                tx_input.transaction = txs[tx_hash]
+                tx_input.transaction_info = txs[tx_hash]
 
     async def _check_signature(self):
         tx_hex = self.hex(False)
