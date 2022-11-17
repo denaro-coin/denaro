@@ -433,3 +433,36 @@ class Database:
                     if tx_output.address in addresses:
                         balance += tx_output.amount
         return balance
+
+    async def get_nice_transaction(self, tx_hash: str, address: str = None):
+        async with self.pool.acquire() as connection:
+            res = await connection.fetchrow('SELECT tx_hex, tx_hash, block_hash, inputs_addresses FROM transactions WHERE tx_hash = $1', tx_hash)
+            if res is None:
+                res = await connection.fetchrow('SELECT tx_hex, tx_hash, inputs_addresses FROM pending_transactions WHERE tx_hash = $1', tx_hash)
+        if res is None:
+            return None
+        tx = await Transaction.from_hex(res['tx_hex'], False)
+        if isinstance(tx, CoinbaseTransaction):
+            transaction = {'is_coinbase': True, 'hash': res['tx_hash'], 'block_hash': res.get('block_hash')}
+        else:
+            delta = None
+            if address is not None:
+                public_key = string_to_point(address)
+                delta = 0
+                for i, tx_input in enumerate(tx.inputs):
+                    if string_to_point(res['inputs_addresses'][i]) == public_key:
+                        print('getting related output for delta')
+                        delta -= await tx_input.get_amount()
+                for tx_output in tx.outputs:
+                    if tx_output.public_key == public_key:
+                        delta += tx_output.amount
+            transaction = {'is_coinbase': False, 'hash': res['tx_hash'], 'block_hash': res.get('block_hash'), 'message': tx.message.hex() if tx.message is not None else None, 'inputs': [], 'delta': delta, 'fees': await tx.get_fees()}
+            for i, input in enumerate(tx.inputs):
+                transaction['inputs'].append({
+                    'index': input.index,
+                    'tx_hash': input.tx_hash,
+                    'address': res['inputs_addresses'][i],
+                    'amount': await input.get_amount()
+                })
+        transaction['outputs'] = [{'address': output.address, 'amount': output.amount} for output in tx.outputs]
+        return transaction

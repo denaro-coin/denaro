@@ -364,8 +364,8 @@ async def get_address_info(request: Request, address: str, transactions_count_li
     return {'ok': True, 'result': {
         'balance': "{:f}".format(balance),
         'spendable_outputs': [{'amount': "{:f}".format(output.amount), 'tx_hash': output.tx_hash, 'index': output.index} for output in outputs],
-        'transactions': [await transaction_to_json(tx, verify, address) for tx in await db.get_address_transactions(address, limit=transactions_count_limit, check_signatures=True)] if transactions_count_limit > 0 else [],
-        'pending_transactions': [await transaction_to_json(tx, verify, address) for tx in await db.get_address_pending_transactions(address, True)] if show_pending else None,
+        'transactions': [await db.get_nice_transaction(tx.hash(), address if verify else None) for tx in await db.get_address_transactions(address, limit=transactions_count_limit, check_signatures=True)] if transactions_count_limit > 0 else [],
+        'pending_transactions': [await db.get_nice_transaction(tx.hash(), address if verify else None) for tx in await db.get_address_pending_transactions(address, True)] if show_pending else None,
         'pending_spent_outputs': await db.get_address_pending_spent_outputs(address) if show_pending else None
     }}
 
@@ -403,11 +403,10 @@ async def get_pending_transactions():
 @app.get("/get_transaction")
 @limiter.limit("2/second")
 async def get_transaction(request: Request, tx_hash: str, verify: bool = False):
-    tx = await db.get_transaction(tx_hash) or await db.get_pending_transaction(tx_hash)
+    tx = await db.get_nice_transaction(tx_hash)
     if tx is None:
         return {'ok': False, 'error': 'Transaction not found'}
-    transaction = await transaction_to_json(tx, verify)
-    return {'ok': True, 'result': transaction}
+    return {'ok': True, 'result': tx}
 
 
 @app.get("/get_block")
