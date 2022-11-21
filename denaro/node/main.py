@@ -93,7 +93,7 @@ async def create_blocks(blocks: list):
                 if sha256(block_content) == block['hash']:
                     break
         assert i == block['id']
-        if not await create_block(block_content.hex(), txs, last_block):
+        if not await create_block(block_content.hex() if isinstance(block_content, bytes) else block_content, txs, last_block):
             return False
         last_block = block
         i += 1
