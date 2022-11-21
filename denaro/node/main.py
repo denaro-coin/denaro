@@ -76,13 +76,19 @@ async def create_blocks(blocks: list):
                 break
         hex_txs = [tx.hex() for tx in txs]
         block['merkle_tree'] = get_transactions_merkle_tree(hex_txs) if i > 22500 else get_transactions_merkle_tree_ordered(hex_txs)
-        block_content = block_to_bytes(last_block['hash'], block)
+        block_content = block.get('content') or block_to_bytes(last_block['hash'], block)
 
         if i <= 22500 and sha256(block_content) != block['hash'] and i != 17972:
             from itertools import permutations
             for l in permutations(hex_txs):
                 _hex_txs = list(l)
                 block['merkle_tree'] = get_transactions_merkle_tree_ordered(_hex_txs)
+                block_content = block_to_bytes(last_block['hash'], block)
+                if sha256(block_content) == block['hash']:
+                    break
+        elif 131309 < i < 150000 and sha256(block_content) != block['hash']:
+            for diff in range(0, 100):
+                block['difficulty'] = diff / 10
                 block_content = block_to_bytes(last_block['hash'], block)
                 if sha256(block_content) == block['hash']:
                     break

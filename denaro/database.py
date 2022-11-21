@@ -42,6 +42,10 @@ class Database:
                     await connection.execute('ALTER TABLE transactions ADD COLUMN outputs_addresses TEXT[];'
                                               'ALTER TABLE transactions ADD COLUMN outputs_amounts BIGINT[];')
                 try:
+                    await connection.fetchrow('SELECT content FROM blocks LIMIT 1')
+                except UndefinedColumnError:
+                    await connection.execute('ALTER TABLE blocks ADD COLUMN content TEXT')
+                try:
                     await connection.fetchrow('SELECT * FROM pending_spent_outputs LIMIT 1')
                 except UndefinedTableError:
                     print('Creating pending_spent_outputs table')
@@ -169,12 +173,13 @@ class Database:
             stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, outputs_addresses, outputs_amounts, fees) VALUES ($1, $2, $3, $4, $5, $6, $7)')
             await stmt.executemany(data)
 
-    async def add_block(self, id: int, block_hash: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, int]):
+    async def add_block(self, id: int, block_hash: str, block_content: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, int]):
         async with self.pool.acquire() as connection:
-            stmt = await connection.prepare('INSERT INTO blocks (id, hash, address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7)')
+            stmt = await connection.prepare('INSERT INTO blocks (id, hash, content address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)')
             await stmt.fetchval(
                 id,
                 block_hash,
+                block_content,
                 address,
                 random,
                 difficulty,

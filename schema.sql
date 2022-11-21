@@ -1,6 +1,7 @@
 CREATE TABLE IF NOT EXISTS blocks (
 	id SERIAL PRIMARY KEY,
 	hash CHAR(64) UNIQUE,
+	content TEXT NOT NULL,
 	address VARCHAR(128) NOT NULL,
 	random BIGINT NOT NULL,
 	difficulty NUMERIC(3, 1) NOT NULL,
