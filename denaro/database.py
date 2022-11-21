@@ -175,7 +175,7 @@ class Database:
 
     async def add_block(self, id: int, block_hash: str, block_content: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, int]):
         async with self.pool.acquire() as connection:
-            stmt = await connection.prepare('INSERT INTO blocks (id, hash, content address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)')
+            stmt = await connection.prepare('INSERT INTO blocks (id, hash, content, address, random, difficulty, reward, timestamp) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)')
             await stmt.fetchval(
                 id,
                 block_hash,
