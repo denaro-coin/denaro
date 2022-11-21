@@ -115,15 +115,22 @@ class NodeInterface:
         self.url = url.strip('/')
         self.base_url = self.url.replace('http://', '', 1).replace('https://', '', 1)
 
-    async def get_block(self, block_no: int):
-        res = await self.request(f'get_block', {'block': block_no})
+    async def get_block(self, block_no: int, full_transactions: bool = True):
+        res = await self.request('get_block', {'block': block_no, 'full_transactions': full_transactions})
         return res['result']
 
     async def get_blocks(self, offset: int, limit: int):
-        res = await self.request(f'get_blocks', {'offset': offset, 'limit': limit})
+        res = await self.request('get_blocks', {'offset': offset, 'limit': limit})
+        if 'result' not in res:
+            # todo improve error handling
+            raise Exception(res['error'])
         return res['result']
 
-    async def request(self, path: str, data: dict, sender_node: str = ''):
+    async def get_nodes(self):
+        res = await self.request('get_nodes')
+        return res['result']
+
+    async def request(self, path: str, data: dict = {}, sender_node: str = ''):
         headers = {'Sender-Node': sender_node}
         if path in ('push_block', 'push_tx'):
             r = await NodesManager.request(f'{self.url}/{path}', method='POST', json=data, headers=headers, timeout=10)
