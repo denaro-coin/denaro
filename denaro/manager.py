@@ -281,7 +281,9 @@ async def create_block(block_content: str, transactions: List[Transaction], last
     if last_block is None or last_block['id'] % BLOCKS_COUNT == 0:
         difficulty, last_block = await calculate_difficulty()
     else:
-        difficulty = Decimal(str(last_block['difficulty']))
+        # fixme temp fix
+        difficulty, last_block = await get_difficulty()
+        #difficulty = Decimal(str(last_block['difficulty']))
     if not await check_block(block_content, transactions, (difficulty, last_block)):
         return False
 
