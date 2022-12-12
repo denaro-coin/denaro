@@ -96,3 +96,7 @@ class TransactionInput:
         if 'transaction' in self_dict: del self_dict['transaction']
         if 'private_key' in self_dict: del self_dict['private_key']
         return self_dict
+
+    def __eq__(self, other):
+        assert isinstance(other, self.__class__)
+        return (self.tx_hash, self.index) == (other.tx_hash, other.index)
