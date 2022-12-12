@@ -439,6 +439,17 @@ class Database:
                         balance += tx_output.amount
         return balance
 
+    async def get_address_spendable_outputs_delta(self, address: str, block_no: int) -> Tuple[List[TransactionInput], List[TransactionInput]]:
+        point = string_to_point(address)
+        addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
+        async with self.pool.acquire() as connection:
+            unspent_outputs = await connection.fetch('SELECT unspent_outputs.tx_hash, index, transactions.outputs_amounts[index + 1] AS amount FROM unspent_outputs INNER JOIN transactions ON (transactions.tx_hash = unspent_outputs.tx_hash) INNER JOIN blocks ON (blocks.hash = transactions.block_hash) WHERE unspent_outputs.address = ANY($1) AND blocks.id >= $2', addresses, block_no)
+            spending_txs = await connection.fetch('SELECT tx_hex, blocks.id AS block_no FROM transactions INNER JOIN blocks ON (transactions.block_hash = blocks.hash) WHERE $1 = ANY(inputs_addresses) AND blocks.id >= $2 LIMIT $2', address, block_no)
+        unspent_outputs = [TransactionInput(tx_hash, index, amount=Decimal(amount) / SMALLEST, public_key=point) for tx_hash, index, amount in unspent_outputs]
+        spending_txs = [await Transaction.from_hex(tx['tx_hex'], False) for tx in spending_txs]
+        spent_outputs = sum([tx.inputs for tx in spending_txs], [])
+        return unspent_outputs, spent_outputs
+
     async def get_nice_transaction(self, tx_hash: str, address: str = None):
         async with self.pool.acquire() as connection:
             res = await connection.fetchrow('SELECT tx_hex, tx_hash, block_hash, inputs_addresses FROM transactions WHERE tx_hash = $1', tx_hash)
