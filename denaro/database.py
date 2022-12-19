@@ -117,7 +117,7 @@ class Database:
         async with self.pool.acquire() as connection:
             await connection.execute('DELETE FROM blocks WHERE id > $1', offset)
 
-    async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False) -> List[Union[Transaction, str]]:
+    async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False, check_signatures: bool = True) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch(f'SELECT tx_hex FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC, LENGTH(tx_hex), tx_hex')
         txs_hex = [tx['tx_hex'] for tx in txs]
