@@ -130,7 +130,7 @@ class Database:
             size += len(tx)
         if hex_only:
             return return_txs
-        return [await Transaction.from_hex(tx_hex) for tx_hex in return_txs]
+        return [await Transaction.from_hex(tx_hex, check_signatures) for tx_hex in return_txs]
 
     async def get_next_block_average_fee(self):
         limit = MAX_BLOCK_SIZE_HEX
