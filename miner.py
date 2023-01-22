@@ -69,6 +69,7 @@ def run(start: int = 0, step: int = 1, res: dict = None):
             r = requests.post(NODE + 'push_block', json={
                 'block_content': _hex.hex(),
                 'txs': txs,
+                'id': last_block["id"] + 1
             }, timeout=20 + int((len(txs) or 1) / 3))
             print(res := r.json())
             if res['ok']:
