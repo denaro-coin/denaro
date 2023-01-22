@@ -270,20 +270,24 @@ async def push_tx(request: Request, background_tasks: BackgroundTasks, tx_hex: s
 
 @app.post("/push_block")
 @app.get("/push_block")
-async def push_block(request: Request, background_tasks: BackgroundTasks, block_content: str = '', txs='', body=Body(False), id: int = None):
+async def push_block(request: Request, background_tasks: BackgroundTasks, block_content: str = '', txs='', block_no: int = None, body=Body(False)):
     if is_syncing:
         return {'ok': False, 'error': 'Node is already syncing'}
     if body:
         txs = body['txs']
         if 'block_content' in body:
             block_content = body['block_content']
+        if 'id' in body:
+            block_no = body['id']
+        if 'block_no' in body:
+            block_no = body['block_no']
     if isinstance(txs, str):
         txs = txs.split(',')
         if txs == ['']:
             txs = []
     previous_hash = split_block_content(block_content)[0]
     next_block_id = await db.get_next_block_id()
-    if id is None:
+    if block_no is None:
         previous_block = await db.get_block(previous_hash)
         if previous_block is None:
             if 'Sender-Node' in request.headers:
@@ -292,11 +296,11 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
                         'error': 'Previous hash not found, had to sync according to sender node, block may have been accepted'}
             else:
                 return {'ok': False, 'error': 'Previous hash not found'}
-        id = previous_block['id'] + 1
-    if next_block_id < id:
+        block_no = previous_block['id'] + 1
+    if next_block_id < block_no:
         background_tasks.add_task(sync_blockchain, request.headers['Sender-Node'] if 'Sender-Node' in request.headers else None)
         return {'ok': False, 'error': 'Blocks missing, had to sync according to sender node, block may have been accepted'}
-    if next_block_id > id:
+    if next_block_id > block_no:
         return {'ok': False, 'error': 'Too old block'}
     final_transactions = []
     hashes = []
@@ -324,7 +328,7 @@ async def push_block(request: Request, background_tasks: BackgroundTasks, block_
     background_tasks.add_task(propagate, 'push_block', {
         'block_content': block_content,
         'txs': [tx.hex() for tx in final_transactions] if len(final_transactions) < 10 else txs,
-        'id': id
+        'block_no': block_no
     })
     return {'ok': True}
 
