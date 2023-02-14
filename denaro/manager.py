@@ -107,14 +107,14 @@ def get_block_reward(number: int) -> Decimal:
     if divider > 8:
         if number < 150000 * 9 + 458732 - 150000:
             return Decimal('0.390625')
-        elif number < 150000 * 9 + 458733 - 150000:
+        elif number < 150000 * 9 + 458733 - 150000 + 320:
             return Decimal('0.3125')
         return Decimal(0)
     return Decimal(100) / (2 ** Decimal(divider))
 
 
 def __check():
-    i = 0
+    i = 1
     r = 0
     index = {}
     while n := get_block_reward(i):
