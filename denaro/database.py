@@ -428,7 +428,7 @@ class Database:
         search = ['%'+point_to_bytes(string_to_point(address), address_format).hex()+'%' for address_format in list(AddressFormat)]
         addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
         tx_inputs = await self.get_spendable_outputs(address, check_pending_txs=check_pending_txs)
-        balance = sum(tx_input.amount for tx_input in tx_inputs)
+        balance = sum([tx_input.amount for tx_input in tx_inputs], Decimal(0))
         if check_pending_txs:
             async with self.pool.acquire() as connection:
                 txs = await connection.fetch('SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1)', search)
