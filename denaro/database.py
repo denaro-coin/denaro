@@ -371,16 +371,19 @@ class Database:
 
     async def get_unspent_outputs_from_all_transactions(self):
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE true')
-        transactions = {sha256(tx['tx_hex']): await Transaction.from_hex(tx['tx_hex']) for tx in txs}
-        outputs = sum([[(tx_hash, index) for index in range(len(transaction.outputs))] for tx_hash, transaction in transactions.items()], [])
-        for tx_hash, transaction in transactions.items():
-            if isinstance(transaction, CoinbaseTransaction):
-                continue
-            for tx_input in transaction.inputs:
-                if (tx_input.tx_hash, tx_input.index) in outputs:
-                    outputs.remove((tx_input.tx_hash, tx_input.index))
-        return outputs
+            txs = await connection.fetch('SELECT tx_hex, blocks.id AS block_no FROM transactions INNER JOIN blocks ON (transactions.block_hash = blocks.hash) ORDER BY blocks.id ASC')
+        outputs = set()
+        last_block_no = 0
+        for tx in txs:
+            if tx['block_no'] != last_block_no:
+                last_block_no = tx['block_no']
+                print(f'{len(outputs)} utxos at block {last_block_no - 1}')
+            tx_hash = sha256(tx['tx_hex'])
+            transaction = await Transaction.from_hex(tx['tx_hex'], check_signatures=False)
+            if isinstance(transaction, Transaction):
+                outputs = outputs.difference({(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs})
+            outputs.update({(tx_hash, index) for index in range(len(transaction.outputs))})  # append
+        return list(outputs)
 
     async def get_address_transactions(self, address: str, check_pending_txs: bool = False, check_signatures: bool = False, limit: int = 50) -> List[Union[Transaction, CoinbaseTransaction]]:
         point = string_to_point(address)
