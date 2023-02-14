@@ -103,7 +103,7 @@ class Transaction:
 
     async def _fill_transaction_inputs(self, txs=None) -> None:
         from .. import Database
-        check_inputs = [tx_input.tx_hash for tx_input in self.inputs if tx_input.transaction is None]
+        check_inputs = [tx_input.tx_hash for tx_input in self.inputs if tx_input.transaction is None and tx_input.transaction_info is None]
         if not check_inputs:
             return
         if txs is None:
