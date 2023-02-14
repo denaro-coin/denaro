@@ -216,14 +216,18 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
     difficulty, last_block = mining_info
     block_no = last_block['id'] + 1 if last_block != {} else 1
     previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
-    if block_no == 17972:
+    if block_no == 17972 and last_block['hash'] == 'c3b69440e58e99567571e58486d8f22ed1e3107c50b827c9366294b2637cb1a0':
         if address != 'dbda85e237b90aa669da00f2859e0010b0a62e0fb6e55ba6ca3ce8a961a60c64410bcfb6a038310a3bb6f1a4aaa2de1192cc10e380a774bb6f9c6ca8547f11ab' or \
            content_time != 1638463765 or random != 17660081:
             return False
     elif not await check_block_is_valid(block_content, mining_info):
         print('block not valid')
         return False
-
+    if block_no == 143361 and sha256(block_content) == 'a53268dd22d173dd0c9c10d7f6a64f46071c669052186a7855e9cc65e9a46939':
+        for transaction in transactions:
+            if transaction.hash() == '5958b48fa0b1692b112affc7a2be887d24073027f3bef585322f33b5eeca463c':
+                transactions.remove(transaction)  # there are 2 transactions which spend same inputs in this block
+                break
 
     content_time = int(content_time)
     if last_block != {} and previous_hash != last_block['hash']:
@@ -248,15 +252,12 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         unspent_outputs = await database.get_unspent_outputs(check_inputs)
         if len(set(check_inputs)) != len(check_inputs) or set(check_inputs) - set(unspent_outputs) != set():
             print('double spend in block')
-            print(spent_outputs := set(check_inputs) - set(unspent_outputs))
-            if len(spent_outputs) <= 5:
-                if await database.get_transaction_hash_by_contains_multi(tx_input[0] + bytes([tx_input[1]]).hex() for tx_input in spent_outputs) is not None:
-                    return False
-            else:
-                return False
-
+            spent_outputs = set(check_inputs) - set(unspent_outputs)
+            print(len(spent_outputs))
+            return False
         input_txs_hash = sum([[tx_input.tx_hash for tx_input in transaction.inputs] for transaction in transactions], [])
         input_txs = await database.get_transactions_info(input_txs_hash)
+        # move after pp('after get_transactions', time.time() - t)
         for transaction in transactions:
             await transaction._fill_transaction_inputs(input_txs)
 
@@ -269,6 +270,8 @@ async def check_block(block_content: str, transactions: List[Transaction], minin
         transactions) if block_no >= 22500 else get_transactions_merkle_tree_ordered(transactions)
     if merkle_tree != transactions_merkle_tree:
         if block_no == 17972 and get_transactions_merkle_tree(transactions) == 'cb52390983d1902bf7d0eb96ed3f8adc359d34b6617dcccd2b610349e0ee8d15':
+            return True
+        if block_no == 143361 and transactions_merkle_tree == 'a9a930d5144c70afc1679dbb83551a318d5d5da6744145761962157a48fabd54':
             return True
         _print('merkle tree does not match')
         return False
@@ -291,7 +294,11 @@ async def create_block(block_content: str, transactions: List[Transaction], last
     block_no = last_block['id'] + 1 if last_block != {} else 1
     block_hash = sha256(block_content) if block_no != 17972 else '37cb1a0522c039330775e07d824c94e0422dbfb2dba6dcd421f4dc9f11601672'
     previous_hash, address, merkle_tree, content_time, content_difficulty, random = split_block_content(block_content)
-
+    if block_hash == 'a53268dd22d173dd0c9c10d7f6a64f46071c669052186a7855e9cc65e9a46939':  # block 143361 has a double spend
+        for transaction in transactions:
+            if transaction.hash() == '5958b48fa0b1692b112affc7a2be887d24073027f3bef585322f33b5eeca463c':
+                transactions.remove(transaction)  # there are 2 transactions which spend same inputs in this block
+                break
     fees = sum(transaction.fees for transaction in transactions)
 
     block_reward = get_block_reward(block_no)
