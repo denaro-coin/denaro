@@ -341,11 +341,11 @@ class Database:
 
     async def remove_unspent_outputs(self, transactions: List[Transaction]) -> None:
         inputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions], [])
-        async with self.pool.acquire() as connection:
-            try:
+        try:
+            async with self.pool.acquire() as connection:
                 await connection.execute('DELETE FROM unspent_outputs WHERE (tx_hash, index) = ANY($1::tx_output[])', inputs)
-            except:
-                await self.remove_unspent_outputs(transactions)
+        except:
+            await self.remove_unspent_outputs(transactions)
 
     async def remove_pending_spent_outputs(self, transactions: List[Transaction]) -> None:
         inputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs] for transaction in transactions], [])
