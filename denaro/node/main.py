@@ -47,12 +47,12 @@ app.add_middleware(
 )
 
 
-async def propagate(path: str, args: dict, ignore_url=None):
+async def propagate(path: str, args: dict, ignore_url=None, nodes: list = None):
     global self_url
     self_node = NodeInterface(self_url or '')
     ignore_node = NodeInterface(ignore_url or '')
     aws = []
-    for node_url in NodesManager.get_propagate_nodes():
+    for node_url in nodes or NodesManager.get_propagate_nodes():
         node_interface = NodeInterface(node_url)
         if node_interface.base_url == self_node.base_url or node_interface.base_url == ignore_node.base_url:
             continue
@@ -156,11 +156,12 @@ async def _sync_blockchain(node_url: str = None):
             return
         try:
             assert await create_blocks(blocks)
-            if node_url is not None:
+            if await db.get_next_block_id() > i:
                 NodesManager.update_last_message(node_url)
         except Exception as e:
             print(e)
             if local_cache is not None:
+                print('sync failed, reverting back to previous chain')
                 await db.delete_blocks(last_common_block)
                 await create_blocks(local_cache)
             return
@@ -226,6 +227,8 @@ async def middleware(request: Request, call_next):
 
             try:
                 await propagate('add_node', {'url': self_url})
+                cousin_nodes = sum(await NodeInterface(url).get_nodes() for url in nodes)
+                await propagate('add_node', {'url': self_url}, nodes=cousin_nodes)
             except:
                 pass
     try:
