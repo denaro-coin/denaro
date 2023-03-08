@@ -115,7 +115,17 @@ class Database:
 
     async def delete_blocks(self, offset: int):
         async with self.pool.acquire() as connection:
-            await connection.execute('DELETE FROM blocks WHERE id > $1', offset)
+            await connection.execute('DELETE FROM blocks WHERE id > $1', offset, timeout=600)
+
+    async def remove_blocks(self, block_no: int):
+        blocks_to_remove = await self.get_blocks(block_no, 500)
+        transactions_to_remove = sum([block_to_remove['transactions'] for block_to_remove in blocks_to_remove], [])
+        used_outputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in getattr(await Transaction.from_hex(transaction, False), 'inputs', [])] for transaction in transactions_to_remove], [])
+        async with self.pool.acquire() as connection:
+            await connection.execute('DELETE FROM blocks WHERE id >= $1', block_no, timeout=600)
+        await self.add_unspent_outputs(used_outputs)
+        for tx in transactions_to_remove:
+            await self.add_pending_transaction(await Transaction.from_hex(tx))
 
     async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False, check_signatures: bool = True) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:

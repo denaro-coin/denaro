@@ -115,29 +115,21 @@ async def _sync_blockchain(node_url: str = None):
     if last_block != {} and last_block['id'] > 500:
         remote_last_block = (await node_interface.get_block(i-1))['block']
         if remote_last_block['hash'] != last_block['hash']:
+            if last_block['id'] > remote_last_block['id']:
+                return
             print(remote_last_block['hash'])
             offset, limit = i - 500, 500
             remote_blocks = await node_interface.get_blocks(i-500, 500)
             local_blocks = await db.get_blocks(offset, limit)
+            local_blocks = local_blocks[:len(remote_blocks)]
             local_blocks.reverse()
             remote_blocks.reverse()
             print(len(remote_blocks), len(local_blocks))
-            if len(local_blocks) > len(remote_blocks):
-                return
-            for n, local_block in enumerate(local_blocks):
+            for n, local_block in enumerate(local_blocks[:len(remote_blocks)]):
                 if local_block['block']['hash'] == remote_blocks[n]['block']['hash']:
                     print(local_block, remote_blocks[n])
-                    local_cache = local_blocks[:n]
-                    local_cache.reverse()
-                    last_common_block = i = local_block['block']['id']
-                    blocks_to_remove = await db.get_blocks(last_common_block + 1, 500)
-                    transactions_to_remove = sum([block_to_remove['transactions'] for block_to_remove in blocks_to_remove], [])
-                    used_outputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in getattr(await Transaction.from_hex(transaction), 'inputs', [])] for transaction in transactions_to_remove], [])
-                    await db.delete_blocks(last_common_block)
-                    await db.add_unspent_outputs(used_outputs)
-                    for tx in transactions_to_remove:
-                        await db.add_pending_transaction(await Transaction.from_hex(tx))
-                    print([c['block']['id'] for c in local_cache])
+                    last_common_block = local_block['block']['id']
+                    await db.remove_blocks(last_common_block + 1)
                     break
 
     #return
