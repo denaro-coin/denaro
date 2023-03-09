@@ -119,13 +119,26 @@ class Database:
 
     async def remove_blocks(self, block_no: int):
         blocks_to_remove = await self.get_blocks(block_no, 500)
-        transactions_to_remove = sum([block_to_remove['transactions'] for block_to_remove in blocks_to_remove], [])
-        used_outputs = sum([[(tx_input.tx_hash, tx_input.index) for tx_input in getattr(await Transaction.from_hex(transaction, False), 'inputs', [])] for transaction in transactions_to_remove], [])
+        transactions_to_remove = []
+        # cache overwritten tx hashes
+        transactions_hashes = []
+        for block_to_remove in blocks_to_remove:
+            # load transactions of overwritten blocks
+            transactions_to_remove.extend([await Transaction.from_hex(tx, False) for tx in block_to_remove['transactions']])
+            transactions_hashes.extend([sha256(tx) for tx in block_to_remove['transactions']])
+        outputs_to_be_restored = []
+        for transaction in transactions_to_remove:
+            if isinstance(transaction, Transaction):
+                # load outputs that has been spent in the overwritten transactions that has not been generated in the overwritten transactions
+                outputs_to_be_restored.extend([(tx_input.tx_hash, tx_input.index) for tx_input in transaction.inputs if tx_input.tx_hash not in transactions_hashes])
         async with self.pool.acquire() as connection:
+            # delete the blocks, it will also delete transactions and outputs thanks to references
             await connection.execute('DELETE FROM blocks WHERE id >= $1', block_no, timeout=600)
-        await self.add_unspent_outputs(used_outputs)
+        # add back the outputs to revert the whole chain to the previous state
+        await self.add_unspent_outputs(outputs_to_be_restored)
+        # add removed transactions to pending transactions, this could be improved by adding only the ones who spend only old inputs
         for tx in transactions_to_remove:
-            await self.add_pending_transaction(await Transaction.from_hex(tx))
+            await self.add_pending_transaction(tx)
 
     async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False, check_signatures: bool = True) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
