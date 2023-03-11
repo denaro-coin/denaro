@@ -1,7 +1,7 @@
 import json
 import os
 from os.path import dirname, exists
-from random import choices
+from random import sample
 
 import httpx
 import pickledb
@@ -89,8 +89,7 @@ class NodesManager:
     def get_propagate_nodes():
         active_nodes = NodesManager.get_recent_nodes()
         zero_nodes = NodesManager.get_zero_nodes()
-        return (choices(active_nodes, k=10) if len(active_nodes) > 10 else active_nodes) + (choices(zero_nodes, k=10) if len(zero_nodes) > 10 else zero_nodes)
-
+        return (sample(active_nodes, k=10) if len(active_nodes) > 10 else active_nodes) + (sample(zero_nodes, k=10) if len(zero_nodes) > 10 else zero_nodes)
     @staticmethod
     def clear_old_nodes():
         NodesManager.init()
