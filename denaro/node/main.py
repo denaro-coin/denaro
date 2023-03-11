@@ -148,8 +148,13 @@ async def _sync_blockchain(node_url: str = None):
             return
         try:
             assert await create_blocks(blocks)
-            if await db.get_next_block_id() > i:
+            _, last_block = await calculate_difficulty()
+            if await last_block['id'] >= i:
                 NodesManager.update_last_message(node_url)
+                if timestamp() - last_block['timestamp'] < 86400:
+                    # if last block is from less than a day ago, propagate it
+                    txs_hashes = await db.get_block_transaction_hashes(last_block['hash'])
+                    await propagate('push_block', {'block_content': last_block['content'], 'txs': txs_hashes, 'block_no': last_block['id']}, node_url)
         except Exception as e:
             print(e)
             if local_cache is not None:

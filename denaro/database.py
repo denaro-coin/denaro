@@ -335,6 +335,11 @@ class Database:
             txs = await connection.fetch('SELECT tx_hex FROM transactions WHERE block_hash = $1', block_hash)
         return [tx['tx_hex'] if hex_only else await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
 
+    async def get_block_transaction_hashes(self, block_hash: str) -> List[str]:
+        async with self.pool.acquire() as connection:
+            txs = await connection.fetch("SELECT tx_hash FROM transactions WHERE block_hash = $1 AND tx_hex NOT LIKE '%' || block_hash || '%'", block_hash)
+        return [tx['tx_hash'] for tx in txs]
+
     async def get_block_nice_transactions(self, block_hash: str) -> List[dict]:
         async with self.pool.acquire() as connection:
             txs = await connection.fetch('SELECT tx_hash, inputs_addresses FROM transactions WHERE block_hash = $1', block_hash)
