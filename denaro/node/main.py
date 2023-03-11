@@ -149,7 +149,7 @@ async def _sync_blockchain(node_url: str = None):
         try:
             assert await create_blocks(blocks)
             _, last_block = await calculate_difficulty()
-            if await last_block['id'] >= i:
+            if last_block['id'] >= i:
                 NodesManager.update_last_message(node_url)
                 if timestamp() - last_block['timestamp'] < 86400:
                     # if last block is from less than a day ago, propagate it
