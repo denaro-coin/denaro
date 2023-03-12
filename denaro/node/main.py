@@ -102,7 +102,7 @@ async def create_blocks(blocks: list):
 
 async def _sync_blockchain(node_url: str = None):
     print('sync blockchain')
-    if node_url is None:
+    if not node_url:
         nodes = NodesManager.get_recent_nodes()
         if not nodes:
             return
