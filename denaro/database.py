@@ -137,8 +137,8 @@ class Database:
         # add back the outputs to revert the whole chain to the previous state
         await self.add_unspent_outputs(outputs_to_be_restored)
         # add removed transactions to pending transactions, this could be improved by adding only the ones who spend only old inputs
-        for tx in transactions_to_remove:
-            await self.add_pending_transaction(tx)
+        #for tx in transactions_to_remove:
+        #    await self.add_pending_transaction(tx, verify=False)
 
     async def get_pending_transactions_limit(self, limit: int = MAX_BLOCK_SIZE_HEX, hex_only: bool = False, check_signatures: bool = True) -> List[Union[Transaction, str]]:
         async with self.pool.acquire() as connection:
