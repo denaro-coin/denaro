@@ -20,10 +20,13 @@ NODE_URL = 'https://denaro-node.gaetano.eu.org'
 
 
 def get_address_info(address: str):
-    request = requests.get(f'{NODE_URL}/get_address_info', {'address': address, 'transactions_count_limit': 0})
+    request = requests.get(f'{NODE_URL}/get_address_info', {'address': address, 'transactions_count_limit': 0, 'show_pending': True })
     result = request.json()['result']
     tx_inputs = []
+    pending_spent_outputs = [tuple(output) for output in result['pending_spent_outputs']]
     for spendable_tx_input in result['spendable_outputs']:
+        if (spendable_tx_input['tx_hash'], spendable_tx_input['index']) in pending_spent_outputs:
+            continue
         tx_input = TransactionInput(spendable_tx_input['tx_hash'], spendable_tx_input['index'])
         tx_input.amount = Decimal(str(spendable_tx_input['amount']))
         tx_input.public_key = string_to_point(address)
@@ -31,17 +34,19 @@ def get_address_info(address: str):
     return Decimal(result['balance']), tx_inputs
 
 
-def create_transaction(private_keys, receiving_address, amount, message: bytes = None):
+def create_transaction(private_keys, receiving_address, amount, message: bytes = None, send_back_address=None):
     amount = Decimal(amount)
     inputs = []
     for private_key in private_keys:
         address = point_to_string(keys.get_public_key(private_key, curve.P256))
+        if send_back_address is None:
+            send_back_address = address
         _, address_inputs = get_address_info(address)
         for address_input in address_inputs:
             address_input.private_key = private_key
         inputs.extend(address_inputs)
 
-        if sum(input.amount for input in inputs) >= amount:
+        if sum(input.amount for input in sorted(inputs, key=lambda item: item.amount, reverse=False)[:255]) >= amount:
             break
     if not inputs:
         raise Exception('No spendable outputs')
@@ -49,21 +54,30 @@ def create_transaction(private_keys, receiving_address, amount, message: bytes =
     if sum(input.amount for input in inputs) < amount:
         raise Exception(f"Error: You don\'t have enough funds")
 
-    most_amount = sorted(inputs, key=lambda item: item.amount, reverse=True)
-
     transaction_inputs = []
 
-    for i, tx_input in enumerate(most_amount):
-        transaction_inputs.append(tx_input)
-        transaction_amount = sum(input.amount for input in transaction_inputs)
-        if transaction_amount >= amount:
-            break
+    if any(tx_input.amount >= amount for tx_input in inputs):
+        for tx_input in sorted(inputs, key=lambda item: item.amount):
+            if tx_input.amount >= amount:
+                transaction_inputs.append(tx_input)
+                break
+    else:
+        for tx_input in sorted(inputs, key=lambda item: item.amount, reverse=False):
+            transaction_inputs.append(tx_input)
+            transaction_amount = sum(input.amount for input in transaction_inputs)
+            if transaction_amount >= amount:
+                break
+            if len(transaction_inputs) >= 255:
+                transaction_inputs.pop(0)
 
     transaction_amount = sum(input.amount for input in transaction_inputs)
 
+    if transaction_amount < amount:
+        raise Exception(f"Consolidate outputs: send {transaction_amount} denari to yourself")
+
     transaction = Transaction(transaction_inputs, [TransactionOutput(receiving_address, amount=amount)], message)
     if transaction_amount > amount:
-        transaction.outputs.append(TransactionOutput(address, transaction_amount - amount))
+        transaction.outputs.append(TransactionOutput(send_back_address, transaction_amount - amount))
 
     transaction.sign(private_keys)
 
