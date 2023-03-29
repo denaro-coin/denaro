@@ -12,7 +12,7 @@ class TransactionOutput:
         self.address = address
         self.address_bytes = string_to_bytes(address)
         self.public_key = string_to_point(address)
-        assert (amount * SMALLEST) % 1 == 0.0
+        assert (amount * SMALLEST) % 1 == 0.0, 'too many decimal digits'
         self.amount = amount
 
     def tobytes(self):
