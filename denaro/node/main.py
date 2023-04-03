@@ -115,7 +115,7 @@ async def _sync_blockchain(node_url: str = None):
     if last_block != {} and last_block['id'] > 500:
         remote_last_block = (await node_interface.get_block(i-1))['block']
         if remote_last_block['hash'] != last_block['hash']:
-            if last_block['id'] > remote_last_block['id']:
+            if last_block['id'] >= remote_last_block['id']:
                 return
             print(remote_last_block['hash'])
             offset, limit = i - 500, 500
@@ -143,18 +143,17 @@ async def _sync_blockchain(node_url: str = None):
             #NodesManager.get_nodes().remove(node_url)
             NodesManager.sync()
             break
-        if not blocks:
-            print('syncing complete')
-            return
         try:
-            assert await create_blocks(blocks)
             _, last_block = await calculate_difficulty()
-            if last_block['id'] >= i:
+            if not blocks:
+                assert last_block['id'] > i
+                print('syncing complete')
                 NodesManager.update_last_message(node_url)
                 if timestamp() - last_block['timestamp'] < 86400:
                     # if last block is from less than a day ago, propagate it
                     txs_hashes = await db.get_block_transaction_hashes(last_block['hash'])
                     await propagate('push_block', {'block_content': last_block['content'], 'txs': txs_hashes, 'block_no': last_block['id']}, node_url)
+            assert await create_blocks(blocks)
         except Exception as e:
             print(e)
             if local_cache is not None:
