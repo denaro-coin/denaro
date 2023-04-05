@@ -83,7 +83,7 @@ async def calculate_difficulty() -> Tuple[Decimal, dict]:
             hashrate = difficulty_to_hashrate(last_difficulty)
         ratio = BLOCK_TIME / average_per_block
         if last_block['id'] >= 180_000:  # from block 180k, allow difficulty to double at most
-            ratio = max(ratio, 2)
+            ratio = min(ratio, 2)
         hashrate *= ratio
         if last_block['id'] < 17500:
             new_difficulty = hashrate_to_difficulty_old(hashrate)
