@@ -61,6 +61,8 @@ def hashrate_to_difficulty(hashrate: int) -> Decimal:
             decimal = i / Decimal(10)
             return Decimal(difficulty + decimal)
 
+    return Decimal(difficulty) + Decimal('0.9')
+
 
 async def calculate_difficulty() -> Tuple[Decimal, dict]:
     database = Database.instance
