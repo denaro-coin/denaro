@@ -89,6 +89,7 @@ async def calculate_difficulty() -> Tuple[Decimal, dict]:
         hashrate *= ratio
         if last_block['id'] < 17500:
             new_difficulty = hashrate_to_difficulty_old(hashrate)
+            new_difficulty = floor(new_difficulty * 10) / Decimal(10)
         elif last_block['id'] < 180_000:
             new_difficulty = hashrate_to_difficulty_wrong(hashrate)
         else:
