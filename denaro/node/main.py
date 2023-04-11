@@ -109,7 +109,7 @@ async def _sync_blockchain(node_url: str = None):
         node_url = random.choice(nodes)
     node_url = node_url.strip('/')
     _, last_block = await calculate_difficulty()
-    i = await db.get_next_block_id()
+    starting_from = i = await db.get_next_block_id()
     node_interface = NodeInterface(node_url)
     local_cache = None
     if last_block != {} and last_block['id'] > 500:
@@ -146,7 +146,7 @@ async def _sync_blockchain(node_url: str = None):
         try:
             _, last_block = await calculate_difficulty()
             if not blocks:
-                assert last_block['id'] > i
+                assert last_block['id'] > starting_from
                 print('syncing complete')
                 NodesManager.update_last_message(node_url)
                 if timestamp() - last_block['timestamp'] < 86400:
