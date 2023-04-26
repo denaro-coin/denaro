@@ -115,11 +115,9 @@ async def _sync_blockchain(node_url: str = None):
     if last_block != {} and last_block['id'] > 500:
         remote_last_block = (await node_interface.get_block(i-1))['block']
         if remote_last_block['hash'] != last_block['hash']:
-            if last_block['id'] >= remote_last_block['id']:
-                return
             print(remote_last_block['hash'])
             offset, limit = i - 500, 500
-            remote_blocks = await node_interface.get_blocks(i-500, 500)
+            remote_blocks = await node_interface.get_blocks(offset, limit)
             local_blocks = await db.get_blocks(offset, limit)
             local_blocks = local_blocks[:len(remote_blocks)]
             local_blocks.reverse()
