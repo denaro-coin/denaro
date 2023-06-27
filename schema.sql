@@ -34,7 +34,8 @@ CREATE TABLE IF NOT EXISTS pending_transactions (
 	tx_hash CHAR(64) UNIQUE,
 	tx_hex TEXT,
 	inputs_addresses TEXT[],
-	fees NUMERIC(14, 6) NOT NULL
+	fees NUMERIC(14, 6) NOT NULL,
+	propagation_time TIMESTAMP(0) NOT NULL DEFAULT NOW()
 );
 
 CREATE TABLE IF NOT EXISTS pending_spent_outputs (

@@ -7,7 +7,7 @@ from asyncpg import UniqueViolationError
 from fastapi import FastAPI, Body, Query
 from httpx import TimeoutException
 from icecream import ic
-from starlette.background import BackgroundTasks
+from starlette.background import BackgroundTasks, BackgroundTask
 from starlette.middleware.cors import CORSMiddleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
@@ -185,6 +185,14 @@ async def root():
     return {"version": VERSION, "unspent_outputs_hash": await db.get_unspent_outputs_hash()}
 
 
+async def propagate_old_transactions(propagate_txs):
+    aws = []
+    for tx_hex in propagate_txs:
+        aws.append(propagate('push_tx', {'tx_hex': tx_hex}))
+    await gather(*aws, return_exceptions=True)
+    await db.update_pending_transactions_propagation_time([sha256(tx_hex) for tx_hex in propagate_txs])
+
+
 @app.middleware("http")
 async def middleware(request: Request, call_next):
     global started, self_url
@@ -225,9 +233,12 @@ async def middleware(request: Request, call_next):
                 await propagate('add_node', {'url': self_url}, nodes=cousin_nodes)
             except:
                 pass
+    propagate_txs = await db.get_need_propagate_transactions()
     try:
         response = await call_next(request)
         response.headers['Access-Control-Allow-Origin'] = '*'
+        if propagate_txs:
+            response.background = BackgroundTask(propagate_old_transactions, propagate_txs)
         return response
     except:
         raise

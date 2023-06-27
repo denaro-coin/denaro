@@ -66,6 +66,10 @@ class Database:
                     await connection.execute('ALTER TABLE unspent_outputs ADD COLUMN address TEXT NULL')
                     await self.set_unspent_outputs_addresses()
 
+                try:
+                    await connection.fetchrow('SELECT propagation_time FROM pending_transactions LIMIT 1')
+                except UndefinedColumnError:
+                    await connection.execute('ALTER TABLE pending_transactions ADD COLUMN propagation_time TIMESTAMP(0) NOT NULL DEFAULT NOW()')
 
         Database.instance = self
         return self
@@ -154,6 +158,24 @@ class Database:
         if hex_only:
             return return_txs
         return [await Transaction.from_hex(tx_hex, check_signatures) for tx_hex in return_txs]
+
+    async def get_need_propagate_transactions(self, last_propagation_delta: int = 600, limit: int = MAX_BLOCK_SIZE_HEX) -> List[Union[Transaction, str]]:
+        async with self.pool.acquire() as connection:
+            txs = await connection.fetch(f"SELECT tx_hex, NOW() - propagation_time as delta FROM pending_transactions ORDER BY fees / LENGTH(tx_hex) DESC, LENGTH(tx_hex), tx_hex")
+        return_txs = []
+        size = 0
+        for tx in txs:
+            tx_hex = tx['tx_hex']
+            if size + len(tx_hex) > limit:
+                break
+            size += len(tx_hex)
+            if tx['delta'].total_seconds() > last_propagation_delta:
+                return_txs.append(tx_hex)
+        return return_txs
+
+    async def update_pending_transactions_propagation_time(self, txs_hash: List[str]):
+        async with self.pool.acquire() as connection:
+            await connection.execute("UPDATE pending_transactions SET propagation_time = NOW() WHERE tx_hash = ANY($1)", txs_hash)
 
     async def get_next_block_average_fee(self):
         limit = MAX_BLOCK_SIZE_HEX
