@@ -18,7 +18,7 @@ class Transaction:
         if len(inputs) >= 256:
             raise Exception(f'You can spend max 255 inputs in a single transactions, not {len(inputs)}')
         if len(outputs) >= 256:
-            raise Exception(f'You can have max 255 outputs in a single transactions, not {len(inputs)}')
+            raise Exception(f'You can have max 255 outputs in a single transactions, not {len(outputs)}')
         self.inputs = inputs
         self.outputs = outputs
         self.message = message
