@@ -186,11 +186,9 @@ async def root():
 
 
 async def propagate_old_transactions(propagate_txs):
-    aws = []
-    for tx_hex in propagate_txs:
-        aws.append(propagate('push_tx', {'tx_hex': tx_hex}))
-    await gather(*aws, return_exceptions=True)
     await db.update_pending_transactions_propagation_time([sha256(tx_hex) for tx_hex in propagate_txs])
+    for tx_hex in propagate_txs:
+        await propagate('push_tx', {'tx_hex': tx_hex})
 
 
 @app.middleware("http")
