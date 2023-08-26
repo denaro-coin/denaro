@@ -2,9 +2,12 @@ import random
 from asyncio import gather
 from collections import deque
 from os import environ
+import re
 
 from asyncpg import UniqueViolationError
 from fastapi import FastAPI, Body, Query
+from fastapi.responses import RedirectResponse
+
 from httpx import TimeoutException
 from icecream import ic
 from starlette.background import BackgroundTasks, BackgroundTask
@@ -15,7 +18,6 @@ from starlette.responses import JSONResponse
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
-
 
 from denaro.helpers import timestamp, sha256, transaction_to_json
 from denaro.manager import create_block, get_difficulty, Manager, get_transactions_merkle_tree, \
@@ -196,6 +198,14 @@ async def middleware(request: Request, call_next):
     global started, self_url
     nodes = NodesManager.get_recent_nodes()
     hostname = request.base_url.hostname
+
+    # Normalize the URL path by removing extra slashes
+    normalized_path = re.sub('/+', '/', request.scope['path'])
+    if normalized_path != request.scope['path']:
+        url = request.url
+        new_url = str(url).replace(request.scope['path'], normalized_path)
+        #Redirect to normalized URL
+        return RedirectResponse(new_url)
 
     if 'Sender-Node' in request.headers:
         NodesManager.add_node(request.headers['Sender-Node'])
