@@ -151,6 +151,7 @@ async def _sync_blockchain(node_url: str = None):
                         # if last block is from less than a day ago, propagate it
                         txs_hashes = await db.get_block_transaction_hashes(last_block['hash'])
                         await propagate('push_block', {'block_content': last_block['content'], 'txs': txs_hashes, 'block_no': last_block['id']}, node_url)
+                break
             assert await create_blocks(blocks)
         except Exception as e:
             print(e)
