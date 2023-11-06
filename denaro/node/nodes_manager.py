@@ -25,7 +25,7 @@ class NodesManager:
     db = db
 
     timeout = httpx.Timeout(3)
-    async_client = httpx.AsyncClient(timeout=timeout)
+    async_client = httpx.AsyncClient(timeout=timeout, follow_redirects=True)
 
     @staticmethod
     def init():
