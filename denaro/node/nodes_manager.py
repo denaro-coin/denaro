@@ -114,7 +114,7 @@ class NodeInterface:
         self.url = url.strip('/')
         self.base_url = self.url.replace('http://', '', 1).replace('https://', '', 1)
 
-    async def get_block(self, block_no: int, full_transactions: bool = True):
+    async def get_block(self, block_no: int, full_transactions: bool = False):
         res = await self.request('get_block', {'block': block_no, 'full_transactions': full_transactions})
         return res['result']
 
