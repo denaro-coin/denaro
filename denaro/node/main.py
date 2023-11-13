@@ -123,10 +123,12 @@ async def _sync_blockchain(node_url: str = None):
             local_blocks.reverse()
             remote_blocks.reverse()
             print(len(remote_blocks), len(local_blocks))
-            for n, local_block in enumerate(local_blocks[:len(remote_blocks)]):
+            for n, local_block in enumerate(local_blocks):
                 if local_block['block']['hash'] == remote_blocks[n]['block']['hash']:
                     print(local_block, remote_blocks[n])
                     last_common_block = local_block['block']['id']
+                    local_cache = local_blocks[:n]
+                    local_cache.reverse()
                     await db.remove_blocks(last_common_block + 1)
                     break
 
