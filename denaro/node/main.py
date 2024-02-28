@@ -3,10 +3,13 @@ from asyncio import gather
 from collections import deque
 from os import environ
 import re
+import json
+from decimal import Decimal
+from datetime import datetime 
 
 from asyncpg import UniqueViolationError
 from fastapi import FastAPI, Body, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, Response
 
 from httpx import TimeoutException
 from icecream import ic
@@ -367,7 +370,7 @@ LAST_PENDING_TRANSACTIONS_CLEAN = [0]
 
 
 @app.get("/get_mining_info")
-async def get_mining_info(background_tasks: BackgroundTasks):
+async def get_mining_info(background_tasks: BackgroundTasks, pretty: bool = False):
     Manager.difficulty = None
     difficulty, last_block = await get_difficulty()
     pending_transactions = await db.get_pending_transactions_limit(hex_only=True)
@@ -376,27 +379,37 @@ async def get_mining_info(background_tasks: BackgroundTasks):
         print(LAST_PENDING_TRANSACTIONS_CLEAN[0])
         LAST_PENDING_TRANSACTIONS_CLEAN[0] = timestamp()
         background_tasks.add_task(clear_pending_transactions, pending_transactions)
-    return {'ok': True, 'result': {
+    result = {'ok': True, 'result': {
         'difficulty': difficulty,
         'last_block': last_block,
         'pending_transactions': pending_transactions[:10],
         'pending_transactions_hashes': [sha256(tx) for tx in pending_transactions],
         'merkle_root': get_transactions_merkle_tree(pending_transactions[:10])
     }}
+    return Response(content=json.dumps(result, indent=4, cls=CustomJSONEncoder), media_type="application/json") if pretty else result
 
 
 @app.get("/get_address_info")
-@limiter.limit("2/second")
-async def get_address_info(request: Request, address: str, transactions_count_limit: int = Query(default=5, le=50), show_pending: bool = False, verify: bool = False):
+@limiter.limit("8/second")
+async def get_address_info(request: Request, address: str, transactions_count_limit: int = Query(default=5, le=50), page: int = Query(default=1, ge=1), show_pending: bool = False, verify: bool = False, pretty: bool = False):    
     outputs = await db.get_spendable_outputs(address)
     balance = sum(output.amount for output in outputs)
-    return {'ok': True, 'result': {
+    
+     # Calculate offset for pagination
+    offset = (page - 1) * transactions_count_limit
+    
+    # Fetch transactions with pagination
+    transactions = await db.get_address_transactions(address, limit=transactions_count_limit, offset=offset, check_signatures=True) if transactions_count_limit > 0 else []
+
+    result = {'ok': True, 'result': {
         'balance': "{:f}".format(balance),
         'spendable_outputs': [{'amount': "{:f}".format(output.amount), 'tx_hash': output.tx_hash, 'index': output.index} for output in outputs],
-        'transactions': [await db.get_nice_transaction(tx.hash(), address if verify else None) for tx in await db.get_address_transactions(address, limit=transactions_count_limit, check_signatures=True)] if transactions_count_limit > 0 else [],
+        'transactions': [await db.get_nice_transaction(tx.hash(), address if verify else None) for tx in transactions],
+        #'transactions': [await db.get_nice_transaction(tx.hash(), address if verify else None) for tx in await db.get_address_transactions(address, limit=transactions_count_limit, check_signatures=True)] if transactions_count_limit > 0 else [],
         'pending_transactions': [await db.get_nice_transaction(tx.hash(), address if verify else None) for tx in await db.get_address_pending_transactions(address, True)] if show_pending else None,
         'pending_spent_outputs': await db.get_address_pending_spent_outputs(address) if show_pending else None
     }}
+    return Response(content=json.dumps(result, indent=4, cls=CustomJSONEncoder), media_type="application/json") if pretty else result
 
 
 @app.get("/add_node")
@@ -420,48 +433,60 @@ async def add_node(request: Request, url: str, background_tasks: BackgroundTasks
 
 
 @app.get("/get_nodes")
-async def get_nodes():
-    return {'ok': True, 'result': NodesManager.get_recent_nodes()[:100]}
+async def get_nodes(pretty: bool = False):
+    result = {'ok': True, 'result': NodesManager.get_recent_nodes()[:100]}
+    return Response(content=json.dumps(result, indent=4, cls=CustomJSONEncoder), media_type="application/json") if pretty else result
 
 
 @app.get("/get_pending_transactions")
-async def get_pending_transactions():
-    return {'ok': True, 'result': [tx.hex() for tx in await db.get_pending_transactions_limit(1000)]}
+async def get_pending_transactions(pretty: bool = False):
+    result = {'ok': True, 'result': [tx.hex() for tx in await db.get_pending_transactions_limit(1000)]}
+    return Response(content=json.dumps(result, indent=4, cls=CustomJSONEncoder), media_type="application/json") if pretty else result
 
 
 @app.get("/get_transaction")
-@limiter.limit("2/second")
-async def get_transaction(request: Request, tx_hash: str, verify: bool = False):
+@limiter.limit("8/second")
+async def get_transaction(request: Request, tx_hash: str, verify: bool = False, pretty: bool = False):
     tx = await db.get_nice_transaction(tx_hash)
     if tx is None:
-        return {'ok': False, 'error': 'Transaction not found'}
-    return {'ok': True, 'result': tx}
+        result = {'ok': False, 'error': 'Transaction not found'}
+    else:
+        result = {'ok': True, 'result': tx}
+    return Response(content=json.dumps(result, indent=4, cls=CustomJSONEncoder), media_type="application/json") if pretty else result
 
 
 @app.get("/get_block")
 @limiter.limit("30/minute")
-async def get_block(request: Request, block: str, full_transactions: bool = False):
+async def get_block(request: Request, block: str, full_transactions: bool = False, pretty: bool = False):
     if block.isdecimal():
         block_info = await db.get_block_by_id(int(block))
         if block_info is not None:
             block_hash = block_info['hash']
         else:
-            return {'ok': False, 'error': 'Block not found'}
+            result = {'ok': False, 'error': 'Block not found'}
     else:
         block_hash = block
         block_info = await db.get_block(block_hash)
     if block_info:
-        return {'ok': True, 'result': {
+        result = {'ok': True, 'result': {
             'block': block_info,
             'transactions': await db.get_block_transactions(block_hash, hex_only=True) if not full_transactions else None,
             'full_transactions': await db.get_block_nice_transactions(block_hash) if full_transactions else None
         }}
     else:
-        return {'ok': False, 'error': 'Block not found'}
+        result = {'ok': False, 'error': 'Block not found'}
+    return Response(content=json.dumps(result, indent=4, cls=CustomJSONEncoder), media_type="application/json") if pretty else result
 
 
 @app.get("/get_blocks")
 @limiter.limit("10/minute")
-async def get_blocks(request: Request, offset: int, limit: int = Query(default=..., le=1000)):
+async def get_blocks(request: Request, offset: int, limit: int = Query(default=..., le=1000), pretty: bool = False):
     blocks = await db.get_blocks(offset, limit)
-    return {'ok': True, 'result': blocks}
+    result = {'ok': True, 'result': blocks}
+    return Response(content=json.dumps(result, indent=4, cls=CustomJSONEncoder), media_type="application/json") if pretty else result
+
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, (Decimal, datetime)):
+            return str(o)  # Convert types to string to prevent serialization errors
+        return super().default(o)

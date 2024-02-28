@@ -1,5 +1,5 @@
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 from statistics import mean
 from typing import List, Union, Tuple, Dict
@@ -87,12 +87,18 @@ class Database:
         if verify and not await transaction.verify_pending():
             return False
         async with self.pool.acquire() as connection:
+            execution_timstamp_in_pending_txs = await connection.fetch("SELECT column_name FROM information_schema.columns WHERE table_name='pending_transactions' AND column_name='time_received';")            
+            if not execution_timstamp_in_pending_txs:
+                # If timstamp column doesn't exist, add it
+                await connection.execute("ALTER TABLE pending_transactions ADD COLUMN time_received TIMESTAMP;")
+            utc_datetime = datetime.now(timezone.utc).replace(tzinfo=None)
             await connection.execute(
-                'INSERT INTO pending_transactions (tx_hash, tx_hex, inputs_addresses, fees) VALUES ($1, $2, $3, $4)',
+                'INSERT INTO pending_transactions (tx_hash, tx_hex, inputs_addresses, fees, time_received) VALUES ($1, $2, $3, $4, $5)',
                 sha256(tx_hex),
                 tx_hex,
                 [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs],
-                transaction.fees
+                transaction.fees,
+                utc_datetime
             )
         await self.add_transactions_pending_spent_outputs([transaction])
         return True
@@ -203,19 +209,34 @@ class Database:
         await self.add_transactions([transaction], block_hash)
 
     async def add_transactions(self, transactions: List[Union[Transaction, CoinbaseTransaction]], block_hash: str):
-        data = []
-        for transaction in transactions:
-            data.append((
-                block_hash,
-                transaction.hash(),
-                transaction.hex(),
-                [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs] if isinstance(transaction, Transaction) else [],
-                [tx_output.address for tx_output in transaction.outputs],
-                [tx_output.amount * SMALLEST for tx_output in transaction.outputs],
-                transaction.fees if isinstance(transaction, Transaction) else 0
-            ))
         async with self.pool.acquire() as connection:
-            stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, outputs_addresses, outputs_amounts, fees) VALUES ($1, $2, $3, $4, $5, $6, $7)')
+            execution_timstamp_in_pending_txs = await connection.fetch("SELECT column_name FROM information_schema.columns WHERE table_name='pending_transactions' AND column_name='time_received';")            
+            if not execution_timstamp_in_pending_txs:
+                # If timstamp column doesn't exist in pending_transactions, add it
+                await connection.execute("ALTER TABLE pending_transactions ADD COLUMN time_received TIMESTAMP;")
+            execution_timstamp_in_txs = await connection.fetch("SELECT column_name FROM information_schema.columns WHERE table_name='transactions' AND column_name='time_received';")            
+            if not execution_timstamp_in_txs:
+                # If timstamp column doesn't exist in transactions, add it
+                await connection.execute("ALTER TABLE transactions ADD COLUMN time_received TIMESTAMP;")
+            data = []
+            for transaction in transactions:
+                if isinstance(transaction, CoinbaseTransaction):
+                    tx_executed = await connection.fetchval("SELECT timestamp FROM blocks WHERE hash = $1;", block_hash)
+                elif isinstance(transaction, Transaction):
+                    tx_executed = await connection.fetchval("SELECT time_received FROM pending_transactions WHERE tx_hash = $1;", transaction.hash())
+                else:
+                    tx_executed = None
+                data.append((
+                    block_hash,
+                    transaction.hash(),
+                    transaction.hex(),
+                    [point_to_string(await tx_input.get_public_key()) for tx_input in transaction.inputs] if isinstance(transaction, Transaction) else [],
+                    [tx_output.address for tx_output in transaction.outputs],
+                    [tx_output.amount * SMALLEST for tx_output in transaction.outputs],
+                    transaction.fees if isinstance(transaction, Transaction) else 0,
+                    tx_executed
+                ))
+            stmt = await connection.prepare('INSERT INTO transactions (block_hash, tx_hash, tx_hex, inputs_addresses, outputs_addresses, outputs_amounts, fees, time_received) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)')
             await stmt.executemany(data)
 
     async def add_block(self, id: int, block_hash: str, block_content: str, address: str, random: int, difficulty: Decimal, reward: Decimal, timestamp: Union[datetime, int]):
@@ -438,14 +459,23 @@ class Database:
             outputs.update({(tx_hash, index) for index in range(len(transaction.outputs))})  # append
         return list(outputs)
 
-    async def get_address_transactions(self, address: str, check_pending_txs: bool = False, check_signatures: bool = False, limit: int = 50) -> List[Union[Transaction, CoinbaseTransaction]]:
+    async def get_address_transactions(self, address: str, check_pending_txs: bool = False, check_signatures: bool = False, limit: int = 50, offset: int = 0) -> List[Union[Transaction, CoinbaseTransaction]]:
         point = string_to_point(address)
         search = ['%' + point_to_bytes(string_to_point(address), address_format).hex() + '%' for address_format in list(AddressFormat)]
         addresses = [point_to_string(point, address_format) for address_format in list(AddressFormat)]
         async with self.pool.acquire() as connection:
-            txs = await connection.fetch('SELECT tx_hex, blocks.id AS block_no FROM transactions INNER JOIN blocks ON (transactions.block_hash = blocks.hash) WHERE $1 && inputs_addresses OR $1 && outputs_addresses ORDER BY block_no DESC LIMIT $2', addresses, limit)
+            # Adjusted SQL query to include OFFSET for pagination
+            txs = await connection.fetch(
+                'SELECT tx_hex, blocks.id AS block_no FROM transactions '
+                'INNER JOIN blocks ON (transactions.block_hash = blocks.hash) '
+                'WHERE $1 && inputs_addresses OR $1 && outputs_addresses '
+                'ORDER BY block_no DESC LIMIT $2 OFFSET $3', addresses, limit, offset)
+            
             if check_pending_txs:
-                txs = await connection.fetch("SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1) OR $2 && inputs_addresses", search, addresses) + txs
+                pending_txs = await connection.fetch(
+                    "SELECT tx_hex FROM pending_transactions WHERE tx_hex LIKE ANY($1) "
+                    "OR $2 && inputs_addresses", search, addresses)
+                txs.extend(pending_txs)  # Combine confirmed and pending transactions
         return [await Transaction.from_hex(tx['tx_hex'], check_signatures) for tx in txs]
 
     async def get_address_pending_transactions(self, address: str, check_signatures: bool = False) -> List[Union[Transaction, CoinbaseTransaction]]:
@@ -507,15 +537,43 @@ class Database:
         return unspent_outputs, spent_outputs
 
     async def get_nice_transaction(self, tx_hash: str, address: str = None):
+        print("Running get_nice_transaction")
         async with self.pool.acquire() as connection:
-            res = await connection.fetchrow('SELECT tx_hex, tx_hash, block_hash, inputs_addresses FROM transactions WHERE tx_hash = $1', tx_hash)
+            execution_timstamp_in_pending_txs = await connection.fetch("SELECT column_name FROM information_schema.columns WHERE table_name='pending_transactions' AND column_name='time_received';")            
+            if not execution_timstamp_in_pending_txs:
+                # If timstamp column doesn't exist in pending_transactions, add it
+                await connection.execute("ALTER TABLE pending_transactions ADD COLUMN time_received TIMESTAMP;")
+            execution_timstamp_in_txs = await connection.fetch("SELECT column_name FROM information_schema.columns WHERE table_name='transactions' AND column_name='time_received';")            
+            if not execution_timstamp_in_txs:
+                # If timstamp column doesn't exist in transactions, add it
+                await connection.execute("ALTER TABLE transactions ADD COLUMN time_received TIMESTAMP;")
+
+            get_pending = False
+            res = await connection.fetchrow('SELECT tx_hex, tx_hash, block_hash, inputs_addresses, time_received FROM transactions WHERE tx_hash = $1', tx_hash)
             if res is None:
-                res = await connection.fetchrow('SELECT tx_hex, tx_hash, inputs_addresses FROM pending_transactions WHERE tx_hash = $1', tx_hash)
-        if res is None:
-            return None
+                get_pending = True
+                res = await connection.fetchrow('SELECT tx_hex, tx_hash, inputs_addresses, time_received FROM pending_transactions WHERE tx_hash = $1', tx_hash)
+            
+            if res['time_received'] is not None and isinstance(res['time_received'], datetime):
+                time_received = int(round(res['time_received'].replace(tzinfo=timezone.utc).timestamp()))
+            else:
+                time_received = None
+
+            if res is None:
+                return None
+            
+            block_timestamp = None
+            if not get_pending:
+                block_timestamp = await connection.fetchval("SELECT timestamp FROM blocks WHERE hash = $1;", res.get('block_hash'))
+
+            if block_timestamp is not None and isinstance(block_timestamp, datetime):
+                time_confirmed = int(round(block_timestamp.replace(tzinfo=timezone.utc).timestamp()))
+            else:
+                time_confirmed = None
+
         tx = await Transaction.from_hex(res['tx_hex'], False)
         if isinstance(tx, CoinbaseTransaction):
-            transaction = {'is_coinbase': True, 'hash': res['tx_hash'], 'block_hash': res.get('block_hash')}
+            transaction = {'is_coinbase': True, 'hash': res['tx_hash'], 'block_hash': res.get('block_hash'), 'time_mined': time_received,}
         else:
             delta = None
             if address is not None:
@@ -528,13 +586,25 @@ class Database:
                 for tx_output in tx.outputs:
                     if tx_output.public_key == public_key:
                         delta += tx_output.amount
-            transaction = {'is_coinbase': False, 'hash': res['tx_hash'], 'block_hash': res.get('block_hash'), 'message': tx.message.hex() if tx.message is not None else None, 'inputs': [], 'delta': delta, 'fees': await tx.get_fees()}
+            transaction = {
+                'is_coinbase': False, 
+                'hash': res['tx_hash'], 
+                'block_hash': res.get('block_hash'), 
+                'message': tx.message.hex() if tx.message is not None else None, 
+                'time_received': time_received,
+                'time_confirmed': time_confirmed,
+                'inputs': [], 
+                'delta': delta, 
+                'fees': await tx.get_fees()
+            } 
+            if get_pending:
+                del transaction['time_confirmed']
             for i, input in enumerate(tx.inputs):
                 transaction['inputs'].append({
                     'index': input.index,
                     'tx_hash': input.tx_hash,
                     'address': res['inputs_addresses'][i],
                     'amount': await input.get_amount()
-                })
+                })         
         transaction['outputs'] = [{'address': output.address, 'amount': output.amount} for output in tx.outputs]
         return transaction

@@ -1,68 +1,53 @@
-denaro
-======
+# Denaro
 
-**denaro**, _'money' in italian_, is a cryptocurrency written in Python.  
-Maximum supply is 30.062.005.  
-Maximum decimal digits count is 6.  
-Blocks are generated every ~3 minutes, with a size limit of 2MB per block.  
-Assuming an average transaction to be composed by 5 inputs and 2 outputs, that are 250 bytes, a block can contain ~8300 transactions, which means ~40 transactions per second.    
+**Denaro** is a cryptocurrency developed in Python, named for the Italian word for 'money'. It features a maximum supply of 30,062,005 and allows for transactions with up to 6 decimal places. Blocks are generated approximately every ~3 minutes, with a limit of 2MB per block. Given an average transaction size of 250 bytes (comprising 5 inputs and 2 outputs), a block can accommodate approximately ~8300 transactions, which translates to about ~40 transactions per second.
 
 ## Setup with Docker
-+ Build the base image with `make build`
-+ `$ docker-compose up -d`
-
-## Installation
-
-Before installing denaro, you need to create the postgresql database.  
-You can find the schema in [schema.sql](schema.sql).  
-You have to set environmental variables for database access:
-- `DENARO_DATABASE_USER`, default to `denaro`.  
-- `DENARO_DATABASE_PASSWORD`, default to an empty string.  
-- `DENARO_DATABASE_NAME`, default to `denaro`.  
-- `DENARO_DATABASE_HOST`, default to `127.0.0.1`.  
-
 
 ```bash
-# install postgresql
-createdb denaro
+make build
+docker-compose up -d
 ```
 
-Then install denaro.  
+## Installation
 
 ```bash
 git clone https://github.com/denaro-coin/denaro
 cd denaro
-psql -d denaro -f schema.sql
+sudo bash db_setup.sh
 pip3 install -r requirements.txt
 uvicorn denaro.node.main:app --port 3006
 ```
 
-Node should now sync the blockchain and start working
+## Sync Blockchain
 
+To synchronize a node with the Denaro blockchain, send a GET request to the `/sync_blockchain` endpoint after starting your node:
+
+```bash
+curl http://localhost:3006/sync_blockchain
+```
 
 ## Mining
 
-denaro uses a PoW system.  
+**Denaro** adopts a Proof of Work (PoW) system for its mining process:
 
-Block hash algorithm is sha256.  
-The block sha256 hash must start with the last `difficulty` hex characters of the previously mined block.    
-`difficulty` can also have decimal digits, that will restrict the `difficulty + 1`th character of the derived sha to have a limited set of values.    
-```python
-from math import ceil
+- **Block Hashing**:
+  - Utilizes the sha256 algorithm for block hashing.
+  - The hash of a block must begin with the last `difficulty` hexadecimal characters of the hash from the previously mined block.
+  - `difficulty` can also have decimal digits, that will restrict the difficulty + 1th character of the derived sha to have a limited set of values.
 
-difficulty = 6.3
-decimal = difficulty % 1
+    ```python
+    from math import ceil
 
-charset = '0123456789abcdef'
-count = ceil(16 * (1 - decimal))
-allowed_characters = charset[:count]
-```
+    difficulty = 6.3
+    decimal = difficulty % 1
 
-Address must be present in the string in order to ensure block property.  
+    charset = '0123456789abcdef'
+    count = ceil(16 * (1 - decimal))
+    allowed_characters = charset[:count]
+    ```
 
-Blocks have a block reward that will half itself til it reaches 0.  
-There will be `150000` blocks with reward `100`, and so on til `0.390625`, which will last `458732` blocks.   
-The last block with a reward will be the `458733`th, with a reward of `0.3125`.  
-Subsequent blocks won't have a block reward.  
-Reward will be added the fees of the transactions included in the block.  
-A transaction may also have no fees at all.  
+- **Rewards**:
+  - Block rewards decrease by half over time until they reach zero.
+  - Rewards start at `100` for the initial `150,000` blocks, decreasing in predetermined steps until a final reward of `0.3125` for the `458,733`rd block.
+  - After this, blocks do not offer a mining reward, but transaction fees are still applicable. A transaction may also have no fees at all.

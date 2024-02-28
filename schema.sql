@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS transactions (
 	inputs_addresses TEXT[],
 	outputs_addresses TEXT[],
 	outputs_amounts BIGINT[],
-	fees NUMERIC(14, 6) NOT NULL
+	fees NUMERIC(14, 6) NOT NULL,
+	time_received TIMESTAMP(0)
 );
 
 CREATE TYPE tx_output AS (
@@ -35,7 +36,8 @@ CREATE TABLE IF NOT EXISTS pending_transactions (
 	tx_hex TEXT,
 	inputs_addresses TEXT[],
 	fees NUMERIC(14, 6) NOT NULL,
-	propagation_time TIMESTAMP(0) NOT NULL DEFAULT NOW()
+	propagation_time TIMESTAMP(0) NOT NULL DEFAULT NOW(),
+	time_received TIMESTAMP(0)
 );
 
 CREATE TABLE IF NOT EXISTS pending_spent_outputs (
