@@ -16,7 +16,7 @@ echo "Updating package lists..."
 # Install required packages
 sudo apt update
 echo "Installing required packages..."
-sudo apt install postgresql libgmp-dev libpq-dev || { echo "" && echo "Installation failed"; exit 1; }
+sudo apt install postgresql libgmp-dev libpq-dev python3-venv || { echo "" && echo "Installation failed"; exit 1; }
 echo "Package installation completed."
 echo ""
 
@@ -83,6 +83,79 @@ echo ""
 echo "Importing database schema from schema.sql..."
 # Import schema (consider making this idempotent as well, depending on your schema)
 psql -U $DB_USER -d $DB_NAME -c "SET client_min_messages TO WARNING;" -f schema.sql || { echo "Schema import failed"; exit 1; }
+echo ""
+
+# Virtual Environment Setup
+VENV_DIR="venv"
+echo "Checking if Python virtual environment exists..."
+if [ ! -d "$VENV_DIR" ]; then
+    echo "Creating Python virtual environment in $VENV_DIR..."
+    python3 -m venv $VENV_DIR || { echo "Virtual environment creation failed"; exit 1; }
+else
+    echo "Python virtual environment $VENV_DIR already exists, skipping..."
+fi
+echo ""
+
+echo "Activating Python virtual environment..."
+# Activate Virtual Environment
+source $VENV_DIR/bin/activate || { echo "Virtual environment activation failed"; exit 1; }
+echo ""
+
+echo "Installing Python dependencies from requirements.txt..."
+# Install pip requirements
+pip install -q -r requirements.txt || { echo "Pip requirements installation failed"; exit 1; }
+echo ""
+
+# Ask user if they want to start the node
+echo "Setup completed. Ready to start the Denaro node."
+
+# Function to validate the initial response (y/n)
+validate_start_node_response() {
+    while true; do
+        # Prompt the user for input
+        read -p "Do you want to start the Denaro node now? (Y/N): " start_node
+        # Check if the response is either 'y' or 'n' (case-insensitive)
+        if [[ "$start_node" =~ ^[YyNn]$ ]]; then
+            break  # Exit the loop if the input is valid
+        else
+            echo "Invalid input. Please enter 'Y' or 'N'."  # Prompt for valid input
+        fi
+    done
+}
+
+# Function to validate the port number input
+validate_port_input() {
+    while true; do
+        # Prompt the user for the port number with a default value
+        read -p "Enter the port number you want to use (default 3006): " port
+        # Use default port 3006 if no input is provided
+        if [[ -z "$port" ]]; then
+            port=3006
+            break  # Exit the loop if default is used
+        elif [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 1024 ] && [ "$port" -le 49151 ]; then
+            break  # Exit the loop if the port is a valid number within range
+        else
+            echo "Invalid port number. Please enter a number between 1024 and 49151."  # Prompt for valid input
+        fi
+    done
+}
+
+# Validate start_node input
+validate_start_node_response
+
+if [[ "$start_node" =~ ^[Yy]$ ]]; then
+    echo "Configuring Denaro node startup..."
+    
+    # Validate port number input
+    validate_port_input
+    
+    echo "Starting Denaro node on port $port..."
+    # Attempt to start the Denaro node on the specified port, exit with error if it fails
+    uvicorn denaro.node.main:app --port $port || { echo "Failed to start Denaro Node"; exit 1; }
+else
+    echo "Node start skipped."
+fi
+
 echo ""
 
 echo "Script executed successfully."
