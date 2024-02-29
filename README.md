@@ -14,7 +14,9 @@
 
 Automated configuration and deployment of a Denaro node are facilitated by `setup.sh`. This script handles the installation of necessary libraries, setup of PostgreSQL, Python virtual environment, and other prerequisites required for running a Denaro node. 
 
-*For those who wish to only set up the PostgreSQL database, a `db_setup.sh` script is provided. This script focuses solely on preparing the PostgreSQL database for Denaro's blockchain.*
+For those who wish to only set up the PostgreSQL database, a `db_setup.sh` script is provided. This script focuses solely on preparing the PostgreSQL database for Denaro's blockchain.
+
+*Note: Both scripts are meant to be run on Linux distrubutions that use 'apt' as a package manager (e.g Debian/Ubuntu). If the above scripts do not work it is likely due to 'apt' not being installed on your system. To fix this, you can install 'apt' or manually modify either script to match the package manager that your system uses.*
 
 * Execute the commands below to initiate the installation:
 
