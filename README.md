@@ -33,20 +33,20 @@ For those who wish to only set up the PostgreSQL database, a `db_setup.sh` scrip
   ./setup.sh
   ```
 
-* For PostgreSQL setup only:
+* For PostgreSQL setup only (Optional):
 
   ```bash
   chmod +x db_setup.sh
   ./db_setup.sh
   ```
 
-***Note**: The above scripts are designed for Linux distributions that utilize 'apt' as their package manager (e.g, Debian/Ubuntu). If execution of the setup scripts is unsuccessful, it may be due to the absence of 'apt' on your system. To address this, you can install 'apt' or modify either script to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
+***Note**: The above scripts are designed for Linux distributions that utilize 'apt' as their package manager (e.g, Debian/Ubuntu). If execution of either script is unsuccessful, it may be due to the absence of 'apt' on your system. To address this, you can install 'apt' or modify either script to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
 
 ## Running a Denaro Node
 
 A Denaro node can be started manually if you have already executed the `setup.sh` script and chose not to start the node immediately, or if you need to start the node in a new terminal session. 
 
-***Note**: Users who opted to use the `db_setup.sh` script should set up a Python virtual environment (optional) and install the nessesary Python packages prior to starting the node.*
+***Note**: Users who opted to use the `db_setup.sh` script should set up a Python virtual environment (Optional) and install the required Python packages prior to starting the node.*
 
 Execute the commands below to manually start a Denaro node:
 
