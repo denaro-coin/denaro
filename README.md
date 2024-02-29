@@ -96,7 +96,7 @@ curl http://localhost:3006/sync_blockchain
 - **Block Hashing**:
   - Utilizes the sha256 algorithm for block hashing.
   - The hash of a block must begin with the last `difficulty` hexadecimal characters of the hash from the previously mined block.
-  - `difficulty` can also have decimal digits, that will restrict the difficulty + 1th character of the derived sha to have a limited set of values.
+  - `difficulty` can also have decimal digits, that will restrict the `difficulty + 1`st character of the derived sha to have a limited set of values.
 
     ```python
     from math import ceil
