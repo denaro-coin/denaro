@@ -77,6 +77,8 @@ update_and_install_packages() {
 original_dir=$(pwd)
 
 setup_database() {
+    local db_modified=false
+
     # Change to /tmp before running commands that may cause permission denied notices
     cd /tmp
     echo ""
@@ -87,6 +89,7 @@ setup_database() {
     if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw $DB_NAME; then
         echo "Creating '$DB_NAME' database..."
         sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;" >&/dev/null || { echo "Database creation failed"; exit 1; }
+        db_modified=true
     else
         echo "'$DB_NAME' database already exists, skipping..."
     fi
@@ -97,20 +100,35 @@ setup_database() {
     if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then
         echo "Creating user $DB_USER..."
         sudo -u postgres psql -c "CREATE USER $DB_USER;" >&/dev/null || { echo "User creation failed"; exit 1; }
+        db_modified=true
     else
         echo "Database user '$DB_USER' already exists, skipping..."
     fi
     echo ""
     
-    echo "Setting password for database user..."
-    sudo -u postgres psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASS';" >&/dev/null || { echo "Setting password failed"; exit 1; }
-    echo "Password set."
+    echo "Checking if password is set for database user..."
+    has_password=$(sudo -u postgres psql -X -A -t -c "SELECT rolpassword IS NULL FROM pg_authid WHERE rolname = 'denaro';")
+    if [ ! "$has_password" = "t" ]; then
+        echo "Setting password for database user..."
+        sudo -u postgres psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASS';" >&/dev/null || { echo "Setting password failed"; exit 1; }
+        db_modified=true
+        echo "Password set."
+    else
+        echo "Password already set for databaseuser, skipping..."
+    fi
     echo ""
     
     # Check if user already has all privileges on the database
-    echo "Granting all database privileges to user..."
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;" >&/dev/null || { echo "Granting privileges failed"; exit 1; }
-    echo "Privileges granted."
+    echo "Checking if user has all database privileges..."
+    has_CTc_priv=$(sudo -u postgres psql -X -A -t -c "SELECT bool_or(datacl::text LIKE '%denaro=CTc%') FROM pg_database WHERE datname = 'denaro';")
+    if [ ! "$has_CTc_priv" = "t" ]; then
+        echo "Granting all database privileges to user..."
+        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;" >&/dev/null || { echo "Granting privileges failed"; exit 1; }
+        db_modified=true
+        echo "Privileges granted."
+    else
+        echo "User already granted database privileges, skipping..."
+    fi
     echo ""
     
     # Check if the database owner is already set to the specified user
@@ -119,6 +137,7 @@ setup_database() {
     if [[ $CURRENT_OWNER != *"$DB_USER"* ]]; then
         echo "Changing database owner to '$DB_USER'..."
         sudo -u postgres psql -c "ALTER DATABASE $DB_NAME OWNER TO $DB_USER;" >&/dev/null || { echo "Changing database owner failed"; exit 1; }
+        db_modified=true
         echo "Database owner changed."
     else
         echo "Database owner is already '$DB_USER'."
@@ -136,22 +155,28 @@ setup_database() {
     if ! sudo grep -q 'local   all             all                                     trust' $PG_HBA_CONF; then
         echo "Modifying $PG_HBA_CONF for trust authentication..."
         sudo sed -i.bak '/# "local" is for Unix domain socket connections only/{n;s/peer/trust/;}' $PG_HBA_CONF || { echo "Modification of $PG_HBA_CONF failed"; exit 1; }
+        db_modified=true
     else
         echo "pg_hba.conf already set for trust authentication, skipping..."
     fi
     echo ""
+
+    if $db_modified; then
+        echo "Restarting PostgreSQL service..."
+        # Restart PostgreSQL service
+        sudo service postgresql restart || { echo "PostgreSQL restart failed"; exit 1; }
+        echo ""
     
-    echo "Restarting PostgreSQL service..."
-    # Restart PostgreSQL service
-    sudo service postgresql restart || { echo "PostgreSQL restart failed"; exit 1; }
-    echo ""
-    
-    echo "Importing database schema from schema.sql..."
-    # Import schema (consider making this idempotent as well, depending on your schema)
-    psql -U $DB_USER -d $DB_NAME -c "SET client_min_messages TO WARNING;" -f schema.sql >&/dev/null || { echo "Schema import failed"; exit 1; }
-    echo ""
-    echo "Datebase setup complete!"
-    echo ""
+        echo "Importing database schema from schema.sql..."
+        # Import schema (consider making this idempotent as well, depending on your schema)
+        psql -U $DB_USER -d $DB_NAME -c "SET client_min_messages TO WARNING;" -f schema.sql >&/dev/null || { echo "Schema import failed"; exit 1; }
+        echo ""
+        echo "Datebase setup complete!"
+        echo ""
+    else
+        echo "No modifications to datbase made."
+        echo ""
+    fi
 }
 
 # Only setup the database if --setup-db is specified, then exit
@@ -332,6 +357,8 @@ validate_start_node_response() {
     done
 }
 
+port=3006
+
 # Function to validate the port number input
 validate_port_input() {
     echo ""
@@ -351,23 +378,22 @@ validate_port_input() {
 }
 
 # Validate start_node input
-if $SKIP_PROMPTS; then
+start_node(){
     echo ""
-    echo "Starting Denaro node for localhost on port 3006..."
+    echo "Starting Denaro node for localhost on port $port..."
     echo "Press Ctrl+C to exit."
     echo ""
-    uvicorn denaro.node.main:app --port 3006 || { echo "Failed to start Denaro Node"; exit 1; }
+    uvicorn denaro.node.main:app --port $port || { echo "Failed to start Denaro Node"; exit 1; }
+}
+
+if $SKIP_PROMPTS; then
+    start_node
 else
     validate_start_node_response
     if [[ "$start_node" =~ ^[Yy]$ ]]; then    
         # Validate port number input
         validate_port_input
-        echo ""
-        echo "Starting Denaro node for localhost on port $port..."
-        echo "Press Ctrl+C to exit."
-        echo ""
-        # Attempt to start the Denaro node on the specified port, exit with error if it fails
-        uvicorn denaro.node.main:app --port $port || { echo "Failed to start Denaro Node"; exit 1; }
+        start_node
     else
         echo "Skipped..."
     fi
