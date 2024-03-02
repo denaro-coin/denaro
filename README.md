@@ -42,7 +42,7 @@
 
 A Denaro node can be started manually if you have already executed the `setup.sh` script and chose not to start the node immediately, or if you need to start the node in a new terminal session. 
 
-***Note:** Users who have used the `--setup-db` argument with the setup script or have performed a manual installation, should create a Python virtual environment (Optional) and ensure that the required Python packages are installed prior to starting a node.*
+***Note:** Users who have used the setup script with the `--setup-db` argument or have performed a manual installation, should create a Python virtual environment (Optional) and ensure that the required Python packages are installed prior to starting a node.*
 
 Execute the commands below to manually start a Denaro node:
 
@@ -79,7 +79,7 @@ docker-compose up -d
 
 ## Sync Blockchain
 
-To synchronize a node with the Denaro blockchain, send a GET request to the `/sync_blockchain` endpoint after starting your node:
+To synchronize a node with the Denaro blockchain, send a request to the `/sync_blockchain` endpoint after starting your node:
 
 ```bash
 curl http://localhost:3006/sync_blockchain
