@@ -36,7 +36,9 @@
   ./setup.sh [--skip-prompts] [--setup-db]
   ```
 
-***Note:** The setup script is designed for Linux distributions that utilize 'apt' as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of 'apt' on your system. To address this, you can install 'apt' or modify the script manually to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
+***Note:** The setup script is designed for Linux distributions that utilize 'apt' as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of 'apt' on your system.*
+
+*To address this, you can install the required packages manually, install 'apt' (if compatible), or modify the setup script to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
 
 ## Running a Denaro Node
 
