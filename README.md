@@ -24,7 +24,7 @@
 
   ```bash
   # Clone the Denaro repository to your local machine.
-  git clone https://github.com/denaro-coin/denaro
+  git clone https://github.com/The-Sycorax/denaro
   
   # Change directory to the cloned repository.
   cd denaro
