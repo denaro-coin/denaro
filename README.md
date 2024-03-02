@@ -14,7 +14,7 @@
 
 **Automated configuration and deployment of a Denaro node are facilitated by the `setup.sh` script. It handles system package updates, configures the PostgreSQL database, sets up a Python virtual environment, installs the required Python dependencies, and initiates the Denaro node. This script ensures that all prerequisites for operating a Denaro node are met and properly configured accoring to the user's preference.**
  
-- The script accepts two optional arguments to adjust its behavior during installation:
+- The setup script accepts two optional arguments to adjust its behavior during installation:
 
   - `--skip-prompts`: Executes the setup script in an automated manner without requiring user input, bypassing all interactive prompts.
   
