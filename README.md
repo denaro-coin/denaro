@@ -20,10 +20,7 @@
   
   - `--setup-db`: Limits the setup script's actions to only configure the PostgreSQL database, excluding the execution of other operations such as virtual environment setup and dependency installation.
 
-- ***Note**: The setup script is designed for Linux distributions that utilize 'apt' as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of 'apt' on your system. To address this, you can install 'apt' or modify the script to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
-
-Execute the commands below to initiate the installation:
-
+**Execute the commands below to initiate the installation:**
 
   ```bash
   # Clone the Denaro repository to your local machine.
@@ -39,12 +36,13 @@ Execute the commands below to initiate the installation:
   ./setup.sh [--skip-prompts] [--setup-db]
   ```
 
+***Note:** The setup script is designed for Linux distributions that utilize 'apt' as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of 'apt' on your system. To address this, you can install 'apt' or modify the script manually to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
 
 ## Running a Denaro Node
 
 A Denaro node can be started manually if you have already executed the `setup.sh` script and chose not to start the node immediately, or if you need to start the node in a new terminal session. 
 
-***Note**: Users who have used the `--setup-db` argument with the setup script or have performed a manual installation, should create a Python virtual environment (Optional) and ensure that the required Python packages are installed prior to starting a node.*
+***Note:** Users who have used the `--setup-db` argument with the setup script or have performed a manual installation, should create a Python virtual environment (Optional) and ensure that the required Python packages are installed prior to starting a node.*
 
 Execute the commands below to manually start a Denaro node:
 
