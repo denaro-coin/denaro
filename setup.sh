@@ -1,9 +1,13 @@
 #!/bin/bash
 
-# Overview:
 # Author: The-Sycorax (https://github.com/The-Sycorax)
-# This bash script automates the PostgreSQL setup required to run a Denaro node. It also installs other pre-requisites which are used by python modules.
-# This script has been specifically designed for Debian/Ubuntu Linux distributions.
+# Copyright (c) 2024
+#
+# Overview:
+# This bash script automates the setup required to run a Denaro node. It handles system
+# package updates, configures the PostgreSQL database, sets up a Python virtual environment, installs the
+# required Python dependencies, and initiates the Denaro node. This script ensures that all prerequisites
+# for operating a Denaro node are met and properly configured accoring to the user's preference.
 
 # Parse command-line arguments for skipping prompts and setting up DB only
 SKIP_PROMPTS=false
