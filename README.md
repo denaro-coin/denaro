@@ -12,11 +12,17 @@
 
 ## Installation
 
-Automated configuration and deployment of a Denaro node are facilitated by `setup.sh`. This script handles the installation of necessary libraries, setup of PostgreSQL, Python virtual environment, and other prerequisites required for running a Denaro node. 
+**Automated configuration and deployment of a Denaro node are facilitated by the `setup.sh` script. It handles system package updates, configures the PostgreSQL database, sets up a Python virtual environment, installs the required Python dependencies, and initiates the Denaro node. This script ensures that all prerequisites for operating a Denaro node are met and properly configured accoring to the user's preference.**
+ 
+- The script accepts two optional arguments to adjust its behavior during installation:
 
-For those who wish to only set up the PostgreSQL database, a `db_setup.sh` script is provided. This script focuses solely on preparing the PostgreSQL database for Denaro's blockchain.
+  - `--skip-prompts`: Executes the setup script in an automated manner without requiring user input, bypassing all interactive prompts.
+  
+  - `--setup-db`: Limits the setup script's actions to only configure the PostgreSQL database, excluding the execution of other operations such as virtual environment setup and dependency installation.
 
-* Execute the commands below to initiate the installation:
+- ***Note**: The setup script is designed for Linux distributions that utilize 'apt' as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of 'apt' on your system. To address this, you can install 'apt' or modify the script to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
+
+Execute the commands below to initiate the installation:
 
 
   ```bash
@@ -29,24 +35,16 @@ For those who wish to only set up the PostgreSQL database, a `db_setup.sh` scrip
   # Make the setup script executable.
   chmod +x setup.sh
   
-  # Execute the setup script.
-  ./setup.sh
+  # Execute the setup script with optional arguments as needed.
+  ./setup.sh [--skip-prompts] [--setup-db]
   ```
 
-* For PostgreSQL setup only (Optional):
-
-  ```bash
-  chmod +x db_setup.sh
-  ./db_setup.sh
-  ```
-
-***Note**: The above scripts are designed for Linux distributions that utilize 'apt' as their package manager (e.g, Debian/Ubuntu). If execution of either script is unsuccessful, it may be due to the absence of 'apt' on your system. To address this, you can install 'apt' or modify either script to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
 
 ## Running a Denaro Node
 
 A Denaro node can be started manually if you have already executed the `setup.sh` script and chose not to start the node immediately, or if you need to start the node in a new terminal session. 
 
-***Note**: Users who opted to use the `db_setup.sh` script should set up a Python virtual environment (Optional) and install the required Python packages prior to starting the node.*
+***Note**: Users who have used the `--setup-db` argument with the setup script or have performed a manual installation, should create a Python virtual environment (Optional) and ensure that the required Python packages are installed prior to starting a node.*
 
 Execute the commands below to manually start a Denaro node:
 
@@ -54,8 +52,7 @@ Execute the commands below to manually start a Denaro node:
 # Navigate to the Denaro directory.
 cd path/to/denaro
 
-# For users who executed db_setup.sh: 
-# Set up the Python virtual environment (Optional but recommended).
+# Set up a Python virtual environment (Optional but recommended).
 sudo apt install python3-venv
 python3 -m venv venv
 source venv/bin/activate
@@ -68,7 +65,8 @@ uvicorn denaro.node.main:app --port 3006
 
 # To stop the node, press Ctrl+C in the terminal.
 ```
-To exit the Python virtual environment, use the command:
+
+To exit a Python virtual environment, use the command:
 
 ```bash
 deactivate
