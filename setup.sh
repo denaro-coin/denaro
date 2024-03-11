@@ -10,6 +10,7 @@
 # for operating a Denaro node are met and properly configured accoring to the user's preference.
 
 # Parse command-line arguments for skipping prompts and setting up DB only
+SKIP_APT_INSTALL=false
 SKIP_PROMPTS=false
 SETUP_DB_ONLY=false
 
@@ -17,6 +18,7 @@ while [[ "$#" -gt 0 ]]; do
     case $1 in
         --skip-prompts) SKIP_PROMPTS=true ;;
         --setup-db) SETUP_DB_ONLY=true ;;
+        --skip-package-install) SKIP_APT_INSTALL=true ;;
         *) echo "Unknown parameter passed: $1"; exit 1 ;;
     esac
     shift
@@ -181,12 +183,23 @@ setup_database() {
 
 # Only setup the database if --setup-db is specified, then exit
 if $SETUP_DB_ONLY; then
-    update_and_install_packages
+    # Only install apt packages if --skip-package-install is specified
+    if $SKIP_APT_INSTALL; then
+        echo "Skipping APT package installation..."
+    else
+        update_and_install_packages
+    fi
     setup_database
     exit 0
 fi
 
-update_and_install_packages
+# Only install apt packages if --skip-package-install is specified
+if $SKIP_APT_INSTALL; then
+    echo "Skipping APT package installation..."
+else
+    update_and_install_packages
+fi
+
 setup_database
 
 VENV_DIR="venv"

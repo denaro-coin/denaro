@@ -14,11 +14,13 @@
 
 **Automated configuration and deployment of a Denaro node are facilitated by the `setup.sh` script. It handles system package updates, configures the PostgreSQL database, sets up a Python virtual environment, installs the required Python dependencies, and initiates the Denaro node. This script ensures that all prerequisites for operating a Denaro node are met and properly configured accoring to the user's preference.**
  
-- The setup script accepts two optional arguments to adjust its behavior during installation:
+- The setup script accepts three optional arguments to adjust its behavior during installation:
 
   - `--skip-prompts`: Executes the setup script in an automated manner without requiring user input, bypassing all interactive prompts.
   
   - `--setup-db`: Limits the setup script's actions to only configure the PostgreSQL database, excluding the execution of other operations such as virtual environment setup and dependency installation.
+
+  - `--skip-package-install`: Skips APT package installation. This can be used for Linux distributions that do not use APT as a package manager. However, it is important that the required system packages are installed prior to using the setup script in order for it to work corectly.
 
 **Execute the commands below to initiate the installation:**
 
@@ -33,12 +35,26 @@
   chmod +x setup.sh
   
   # Execute the setup script with optional arguments as needed.
-  ./setup.sh [--skip-prompts] [--setup-db]
+  ./setup.sh [--skip-prompts] [--setup-db] [--skip-package-install]
   ```
 
-***Note:** The setup script is designed for Linux distributions that utilize 'apt' as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of 'apt' on your system.*
+***Note:** The setup script is designed for Linux distributions that utilize `apt` as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of 'apt' on your system. In which case, the required system packages must be installed manually. Below you will find a list of the required system packages.*
 
-*To address this, you can install the required packages manually, install 'apt' (if compatible), or modify the setup script to align with your system's package manager. It is also nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
+<details>
+<summary><i>Required Packages:</i></summary>
+<dl><dd>
+
+*It is nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
+
+- `postgresql`
+- `libgmp-dev`
+- `libpq-dev`
+- `python3-venv` (If using a python virtual environment)
+ 
+</dd></dl>
+</details>
+
+*Once the required packages have been installed, the `--skip-package-install` argument can be used with the setup script to bypass operations which require 'apt', thus mitigating any unsucessful execution relating to package installation.*
 
 ## Running a Denaro Node
 
