@@ -52,6 +52,7 @@
 
 *Note: It is nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
 
+- `sudo`
 - `postgresql`
 - `libgmp-dev`
 - `libpq-dev`
