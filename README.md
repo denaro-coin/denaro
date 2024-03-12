@@ -20,7 +20,7 @@
   
   - `--setup-db`: Limits the setup script's actions to only configure the PostgreSQL database, excluding the execution of other operations such as virtual environment setup and dependency installation.
 
-  - `--skip-package-install`: Skips APT package installation. This can be used for Linux distributions that do not use APT as a package manager. However, it is important that the required system packages are installed prior to using the setup script in order for it to work corectly.
+  - `--skip-package-install`: Skips APT package installation. This can be used for Linux distributions that do not utilize APT as a package manager. However, it is important that the required system packages are installed prior to running the setup script (For more details refer to: *Installation for Non-Debian Based Systems*).
 
 **Execute the commands below to initiate the installation:**
 
@@ -34,27 +34,37 @@
   # Make the setup script executable.
   chmod +x setup.sh
   
-  # Execute the setup script with optional arguments as needed.
+  # Execute the setup script with optional arguments if needed.
   ./setup.sh [--skip-prompts] [--setup-db] [--skip-package-install]
   ```
 
-***Note:** The setup script is designed for Linux distributions that utilize `apt` as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of 'apt' on your system. In which case, the required system packages must be installed manually. Below you will find a list of the required system packages.*
-
 <details>
-<summary><i>Required Packages:</i></summary>
+<summary>Installation for Non-Debian Based Systems:</summary>
+
+<dl><dd>
 <dl><dd>
 
-*It is nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
+ The setup script is designed for Linux distributions that utilize `apt` as their package manager (e.g. Debian/Ubuntu). If system package installation is unsuccessful, it may be due to the absence of apt on your system. In which case, the required system packages must be installed manually. Below you will find a list of the required system packages.
+
+<details>
+<summary>Required Packages:</summary>
+<dl><dd>
+
+*Note: It is nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
 
 - `postgresql`
 - `libgmp-dev`
 - `libpq-dev`
 - `python3-venv` (If using a python virtual environment)
- 
+
 </dd></dl>
 </details>
 
-*Once the required packages have been installed, the `--skip-package-install` argument can be used with the setup script to bypass operations which require 'apt', thus mitigating any unsucessful execution relating to package installation.*
+Once the required packages have been installed, the `--skip-package-install` argument can be used with the setup script to bypass operations which require 'apt', thus mitigating any unsucessful execution relating to package installation.
+
+</dd></dl>
+</dd></dl>
+</details>
 
 ## Running a Denaro Node
 
