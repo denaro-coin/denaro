@@ -137,10 +137,10 @@ setup_database() {
     echo "Checking if database owner is already '$DB_USER'..."
     CURRENT_OWNER=$(sudo -u postgres psql -tAc "SELECT d.datname, pg_catalog.pg_get_userbyid(d.datdba) as owner FROM pg_catalog.pg_database d WHERE d.datname = '$DB_NAME'")
     if [[ $CURRENT_OWNER != *"$DB_USER"* ]]; then
-        echo "Changing database owner to '$DB_USER'..."
-        sudo -u postgres psql -c "ALTER DATABASE $DB_NAME OWNER TO $DB_USER;" >&/dev/null || { echo "Changing database owner failed"; exit 1; }
+        echo "Setting database owner to '$DB_USER'..."
+        sudo -u postgres psql -c "ALTER DATABASE $DB_NAME OWNER TO $DB_USER;" >&/dev/null || { echo "Setting database owner failed"; exit 1; }
         db_modified=true
-        echo "Database owner changed."
+        echo "Database owner set."
     else
         echo "Database owner is already '$DB_USER'."
     fi
@@ -173,10 +173,10 @@ setup_database() {
         # Import schema (consider making this idempotent as well, depending on your schema)
         psql -U $DB_USER -d $DB_NAME -c "SET client_min_messages TO WARNING;" -f schema.sql >&/dev/null || { echo "Schema import failed"; exit 1; }
         echo ""
-        echo "Datebase setup complete!"
+        echo "Database setup complete!"
         echo ""
     else
-        echo "No modifications to datbase made."
+        echo "No modifications to database made."
         echo ""
     fi
 }
