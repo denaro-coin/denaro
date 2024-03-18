@@ -1,13 +1,15 @@
 #!/bin/bash
 
 # Author: The-Sycorax (https://github.com/The-Sycorax)
+# License: MIT
 # Copyright (c) 2024
 #
 # Overview:
 # This bash script automates the setup required to run a Denaro node. It handles system
-# package updates, configures the PostgreSQL database, sets up a Python virtual environment, installs the
-# required Python dependencies, and initiates the Denaro node. This script ensures that all prerequisites
-# for operating a Denaro node are met and properly configured accoring to the user's preference.
+# package updates, configures environment variables, configures the PostgreSQL database, 
+# sets up a Python virtual environment, installs the required Python dependencies, and 
+# initiates the Denaro node. This script ensures that all prerequisites for operating a
+# Denaro node are met and properly configured accoring to the user's preference.
 
 # Parse command-line arguments for skipping prompts and setting up DB only
 SKIP_APT_INSTALL=false
@@ -27,10 +29,22 @@ done
 echo "Starting Denaro node setup..."
 echo ""
 
-# Variables
-DB_NAME="denaro"
-DB_USER="denaro"
-DB_PASS=""
+# Global variables DB and host config
+DENARO_DATABASE_USER="denaro"
+DENARO_DATABASE_PASSWORD="denaro"
+DENARO_DATABASE_NAME="denaro"
+DENARO_DATABASE_HOST="127.0.0.1"
+DENARO_NODE_HOST="127.0.0.1"
+DENARO_NODE_PORT="3006"
+USE_DEFAULT_ENV_VARS=false 
+# Path to the .env file
+env_file=".env"
+
+db_user_changed=false
+db_pass_changed=false
+db_name_changed=false
+
+# Virtual environment directory
 VENV_DIR="venv"
 
 update_and_install_packages() {
@@ -75,6 +89,305 @@ update_and_install_packages() {
     fi
 }
 
+# Custom function to read password with asterisk feedback
+read_password_with_asterisks() {
+    local prompt=$1
+    local var_name=$2
+    
+    if ! $SKIP_PROMPTS && ! $USE_DEFAULT_ENV_VARS; then
+        echo -n "$prompt "
+        local password=""
+        local char_count=0
+
+        # Disable echo
+        stty -echo
+
+        while IFS= read -r -s -n1 char; do
+            # Enter - accept password
+            if [[ $char == $'\0' ]]; then
+                break
+            fi
+            # Backspace
+            if [[ $char == $'\177' ]]; then
+                if [ $char_count -gt 0 ]; then
+                    char_count=$((char_count-1))
+                    password="${password%?}"
+                    echo -en "\b \b"
+                fi
+                continue
+            fi
+            echo -n '*'
+            char_count=$((char_count+1))
+            password+="$char"
+        done
+
+        # Re-enable echo
+        stty echo
+        echo
+
+        # Update global variable
+        eval $var_name="'$password'"
+    fi
+}
+
+# Function to validate the port number input
+validate_port_input() {
+    local prompt="$1"
+    local var_name="$2"
+    local input_port=""
+    local show_current_vars="$3"
+
+    if $show_current_vars;then
+        local var_value=$(grep "^$var_name=" "$env_file" | cut -d'=' -f2-)
+    else
+        local var_value="${!var_name}"
+    fi
+
+    while true; do
+        read -p "$prompt " input_port
+        if [[ -z "$input_port" ]]; then
+            if $show_current_vars;then
+                input_port=$var_value
+            else
+                input_port="3006"
+            fi
+            break
+        elif ! [[ "$input_port" =~ ^[0-9]+$ ]]; then
+            echo "Invalid input. Port must be a number."
+            echo ""
+        elif (( input_port < 1024 || input_port > 49151 )); then
+            echo "Invalid port number. Port must be between 1024 and 49151."
+            echo ""
+        else
+            break
+        fi
+    done
+    eval $var_name="'$input_port'"
+}
+
+# Function to load existing .env variables into global variables
+load_env_variables() {
+    if [[ -f "$env_file" ]]; then
+        #echo "Loading existing configurations..."
+        while IFS='=' read -r key value; do
+            if [[ $key == DENARO_DATABASE_USER || $key == DENARO_DATABASE_PASSWORD || $key == DENARO_DATABASE_NAME || $key == DENARO_DATABASE_HOST || $key == DENARO_NODE_HOST || $key == DENARO_NODE_PORT ]]; then
+                eval $key="'$value'"
+            fi
+        done < "$env_file"
+    fi
+}
+
+# Function to read a variable from the .env file
+read_env_variable() {
+    local var_name="$1"
+    echo $(grep -E "^${var_name}=" .env | cut -d '=' -f2-)
+}
+
+# Function to identify missing or incomplete configuration variables
+identify_missing_variables() {
+    local env_file="$1"
+    local missing_vars=()
+
+    # Check each variable to see if it's present and has a value
+    grep -qE "^DENARO_DATABASE_USER=.+" "$env_file" || missing_vars+=("DENARO_DATABASE_USER")
+    grep -qE "^DENARO_DATABASE_PASSWORD=.+" "$env_file" || missing_vars+=("DENARO_DATABASE_PASSWORD")
+    grep -qE "^DENARO_DATABASE_NAME=.+" "$env_file" || missing_vars+=("DENARO_DATABASE_NAME")
+    grep -qE "^DENARO_DATABASE_HOST=.+" "$env_file" || missing_vars+=("DENARO_DATABASE_HOST")
+    grep -qE "^DENARO_NODE_HOST=.+" "$env_file" || missing_vars+=("DENARO_NODE_HOST")
+    grep -qE "^DENARO_NODE_PORT=.+" "$env_file" || missing_vars+=("DENARO_NODE_PORT")
+
+    echo "${missing_vars[@]}"
+}
+
+# Function to update or append a variable in the .env file
+update_variable() {
+    local prompt="$1"
+    local var_name="$2"
+    local update_missing_vars="$3"
+    local show_current_vars="$4"
+    local env_file=".env"  # Path to the .env file
+    
+    local default_value="${!var_name}"
+    # Define default values explicitly for each variable
+    
+    # Extract the current value directly from the .env file
+    local current_value=$(grep "^$var_name=" "$env_file" | cut -d'=' -f2-)
+    
+    if $show_current_vars;then
+        local var_value=$(grep "^$var_name=" "$env_file" | cut -d'=' -f2-)
+        local prompt_value_string="current:"
+    else
+        local var_value="${!var_name}"
+        local prompt_value_string="default:"
+    fi
+
+    if ! $SKIP_PROMPTS && ! $USE_DEFAULT_ENV_VARS; then
+        if [[ "$var_name" == "DENARO_DATABASE_PASSWORD" ]]; then
+            while true; do
+                # Special handling for password input with asterisks feedback
+                read_password_with_asterisks "$prompt:" "$var_name"
+                local password_value_1=$(echo $DENARO_DATABASE_PASSWORD | sha256sum | cut -d' ' -f1)
+                if [[ -z $DENARO_DATABASE_PASSWORD ]]; then
+                    echo "Password can not be empty, please try again."
+                    echo ""
+                else
+                    read_password_with_asterisks "Confirm database password:" "$var_name" $show_current_vars
+                    local password_value_2=$(echo $DENARO_DATABASE_PASSWORD | sha256sum | cut -d' ' -f1)
+                    if [[ "$password_value_1" != "$password_value_2" ]]; then
+                        echo "Passwords do not match, please try again."
+                        echo ""
+                    else
+                        break
+                    fi
+                fi
+            done
+            
+        elif [[ "$var_name" == "DENARO_NODE_PORT" ]]; then
+            # Special handling for port input with validation
+            validate_port_input "$prompt ($prompt_value_string $var_value):" "$var_name" $show_current_vars
+
+        else
+            # Prompt for other inputs with showing the default value
+            read -p "$prompt ($prompt_value_string $var_value): " value
+            if [[ -z "$value" ]]; then
+                if $show_current_vars;then
+                    value="$var_value"
+                else
+                    value="$default_value"  # Use default value if no input is provided
+                fi
+            fi
+            eval $var_name="'$value'"
+        fi
+
+    elif [[ -z "$current_value" ]]; then
+        if $show_current_vars;then
+            eval $var_name="'$var_value'"
+        else
+            # If there's no current value, use the default
+            eval $var_name="'$default_value'"
+        fi
+    fi
+
+    # Check if the variable already exists in the .env file
+    if grep -q "^$var_name=" "$env_file"; then
+        # Variable exists, update its value using sed
+        sed -i "s/^$var_name=.*/$var_name='${!var_name}'/" "$env_file"
+    else
+        # Variable does not exist, append it
+        echo "$var_name='${!var_name}'" >> "$env_file"
+    fi
+}
+
+# Main function to set variables in a .env file with user-specified variables or defaults
+set_env_variables() {
+    echo ""
+    echo "Starting dotenv configuration..."
+    echo ""
+    local env_file=".env"
+    local PROMPT_FOR_DEFAUT=true
+    local update_missing_vars=false
+    local show_current_vars=false
+
+    # Check if the .env file already exists
+    if [[ -f "$env_file" ]]; then
+        echo "$env_file file already exists."
+        echo ""
+        
+        local missing_vars=($(identify_missing_variables "$env_file"))
+        if [ ${#missing_vars[@]} -eq 0 ]; then
+            
+            if ! $SKIP_PROMPTS; then
+                # Prompt the user to decide if they want to update the current configuration
+                while true; do
+                    read -p "Do you want to update the current configuration? (Y/N): " update_choice
+                    case "$update_choice" in
+                        [Yy] )
+                            local update_missing_vars=true
+                            local show_current_vars=true
+                            PROMPT_FOR_DEFAUT=false
+                            missing_vars=("DENARO_DATABASE_USER" "DENARO_DATABASE_PASSWORD" "DENARO_DATABASE_NAME" "DENARO_DATABASE_HOST" "DENARO_NODE_HOST" "DENARO_NODE_PORT")
+                            echo "Leave blank to keep the current value."
+                            echo ""
+                            break;;
+                        [Nn] )
+                            echo "Keeping current configuration."
+                            load_env_variables
+                            return 0;;
+                        * )
+                            echo "Invalid input. Please enter 'Y' or 'N'."; echo "";;
+                    esac
+                done
+            else
+                echo "Keeping current configuration."
+                load_env_variables
+                return 0
+            fi
+        else
+            echo "The .env file is incomplete or has empty values."
+            echo "Missing variables: ${missing_vars[*]}"
+            echo ""
+            local update_missing_vars=true
+            PROMPT_FOR_DEFAULT=true
+        fi
+    else
+        echo "$env_file file does not exist."
+        echo "Proceeding with configuration..."
+        echo ""
+        PROMPT_FOR_DEFAULT=true
+        > "$env_file"  # Clear or create .env file with the new configuration
+        local missing_vars=($(identify_missing_variables "$env_file"))
+    fi
+
+    if ! $SKIP_PROMPTS; then
+        if $PROMPT_FOR_DEFAUT; then
+            while true; do
+                read -p "Do you want to use the default values for configuration? (Y/N): " use_defaults
+                case "$use_defaults" in
+                    [Yy] ) 
+                        USE_DEFAULT_ENV_VARS=true 
+                        echo "Using default values for configuration."
+                        break;;
+                    [Nn] )
+                        USE_DEFAULT_ENV_VARS=false
+                        echo "Leave blank to use the default value."
+                        echo ""
+                        break;;
+                    * ) 
+                        echo "Invalid input. Please enter 'Y' or 'N'."; echo "";;
+                esac
+            done
+        else
+            USE_DEFAULT_ENV_VARS=false
+        fi
+    else
+        USE_DEFAULT_ENV_VARS=true
+        echo "Using default values for configuration."
+    fi
+    
+    local initial_db_user=$(read_env_variable "DENARO_DATABASE_USER" | sha256sum | cut -d' ' -f1)
+    local initial_db_pass=$(read_env_variable "DENARO_DATABASE_PASSWORD" | sha256sum | cut -d' ' -f1)
+    local initial_db_name=$(read_env_variable "DENARO_DATABASE_NAME" | sha256sum | cut -d' ' -f1)
+   
+    # Use the update_variable function for each required variable based on its presence in missing_vars array
+    [[ " ${missing_vars[*]} " =~ " DENARO_DATABASE_USER " ]] && update_variable "Enter database username" "DENARO_DATABASE_USER" $update_missing_vars $show_current_vars
+    [[ " ${missing_vars[*]} " =~ " DENARO_DATABASE_PASSWORD " ]] && update_variable "Enter password for database user" "DENARO_DATABASE_PASSWORD" $update_missing_vars $show_current_vars
+    [[ " ${missing_vars[*]} " =~ " DENARO_DATABASE_NAME " ]] && update_variable "Enter database name" "DENARO_DATABASE_NAME" $update_missing_vars $show_current_vars
+    [[ " ${missing_vars[*]} " =~ " DENARO_DATABASE_HOST " ]] && update_variable "Enter database host" "DENARO_DATABASE_HOST" $update_missing_vars $show_current_vars
+    [[ " ${missing_vars[*]} " =~ " DENARO_NODE_HOST " ]] && update_variable "Enter local Denaro node address or hostname" "DENARO_NODE_HOST" $update_missing_vars $show_current_vars
+    [[ " ${missing_vars[*]} " =~ " DENARO_NODE_PORT " ]] && update_variable "Enter local Denaro node port" "DENARO_NODE_PORT" $update_missing_vars $show_current_vars
+    
+    local new_db_user=$(read_env_variable "DENARO_DATABASE_USER" | sha256sum | cut -d' ' -f1)
+    local new_db_pass=$(read_env_variable "DENARO_DATABASE_PASSWORD" | sha256sum | cut -d' ' -f1)
+    local new_db_name=$(read_env_variable "DENARO_DATABASE_NAME" | sha256sum | cut -d' ' -f1)
+    
+    [[ "$initial_db_user" != "$new_db_user" ]] && db_user_changed=true
+    [[ "$initial_db_pass" != "$new_db_pass" ]] && db_pass_changed=true
+    [[ "$initial_db_name" != "$new_db_name" ]] && db_name_changed=true
+    
+    echo ""
+    echo "$env_file file configured."
+}
+
 # Save the current directory
 original_dir=$(pwd)
 
@@ -86,46 +399,53 @@ setup_database() {
     echo ""
     echo "Starting Database Setup..."
     echo ""
-    echo "Checking if '$DB_NAME' database exists..."
+    echo "Checking if '$DENARO_DATABASE_NAME' database exists..."
     # Check if database exists
-    if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw $DB_NAME; then
-        echo "Creating '$DB_NAME' database..."
-        sudo -u postgres psql -c "CREATE DATABASE $DB_NAME;" >&/dev/null || { echo "Database creation failed"; exit 1; }
+    if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw $DENARO_DATABASE_NAME; then
+        echo "Creating '$DENARO_DATABASE_NAME' database..."
+        sudo -u postgres psql -c "CREATE DATABASE $DENARO_DATABASE_NAME;" >&/dev/null || { echo "Database creation failed"; exit 1; }
         db_modified=true
     else
-        echo "'$DB_NAME' database already exists, skipping..."
+        echo "'$DENARO_DATABASE_NAME' database already exists, skipping..."
     fi
     echo ""
     
     echo "Checking if the database user exists..."
     # Check if user exists
-    if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DB_USER'" | grep -q 1; then
-        echo "Creating user $DB_USER..."
-        sudo -u postgres psql -c "CREATE USER $DB_USER;" >&/dev/null || { echo "User creation failed"; exit 1; }
+    if ! sudo -u postgres psql -tAc "SELECT 1 FROM pg_roles WHERE rolname='$DENARO_DATABASE_USER'" | grep -q 1; then
+        echo "Creating user $DENARO_DATABASE_USER..."
+        sudo -u postgres psql -c "CREATE USER $DENARO_DATABASE_USER;" >&/dev/null || { echo "User creation failed"; exit 1; }
         db_modified=true
     else
-        echo "Database user '$DB_USER' already exists, skipping..."
+        echo "Database user '$DENARO_DATABASE_USER' already exists, skipping..."
     fi
     echo ""
     
     echo "Checking if password is set for database user..."
-    has_password=$(sudo -u postgres psql -X -A -t -c "SELECT rolpassword IS NULL FROM pg_authid WHERE rolname = 'denaro';")
-    if [ ! "$has_password" = "t" ]; then
+    has_password=$(sudo -u postgres psql -X -A -t -c "SELECT rolpassword IS NULL FROM pg_authid WHERE rolname = '$DENARO_DATABASE_USER';")
+    if [ ! "$has_password" = "f" ]; then
         echo "Setting password for database user..."
-        sudo -u postgres psql -c "ALTER USER $DB_USER WITH PASSWORD '$DB_PASS';" >&/dev/null || { echo "Setting password failed"; exit 1; }
+        sudo -u postgres psql -c "ALTER USER $DENARO_DATABASE_USER WITH PASSWORD '$DENARO_DATABASE_PASSWORD';" >&/dev/null || { echo "Setting password failed"; exit 1; }
         db_modified=true
         echo "Password set."
     else
-        echo "Password already set for databaseuser, skipping..."
+        if $db_pass_changed; then
+            sudo -u postgres psql -c "ALTER USER $DENARO_DATABASE_USER WITH PASSWORD '$DENARO_DATABASE_PASSWORD';" >&/dev/null || { echo "Setting password failed"; exit 1; }
+            echo "Password set."
+        else
+            echo "Password already set for database user, skipping..."
+        fi
     fi
     echo ""
     
     # Check if user already has all privileges on the database
     echo "Checking if user has all database privileges..."
-    has_CTc_priv=$(sudo -u postgres psql -X -A -t -c "SELECT bool_or(datacl::text LIKE '%denaro=CTc%') FROM pg_database WHERE datname = 'denaro';")
+    has_CTc_priv=$(sudo -u postgres psql -X -A -t -c "SELECT bool_or(datacl::text LIKE '%$DENARO_DATABASE_USER=CTc%') FROM pg_database WHERE datname = '$DENARO_DATABASE_NAME';")
     if [ ! "$has_CTc_priv" = "t" ]; then
         echo "Granting all database privileges to user..."
-        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DB_NAME TO $DB_USER;" >&/dev/null || { echo "Granting privileges failed"; exit 1; }
+        sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DENARO_DATABASE_NAME TO $DENARO_DATABASE_USER;" >&/dev/null || { echo "Granting privileges failed"; exit 1; }
+        sudo -u postgres psql -d $DENARO_DATABASE_NAME -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DENARO_DATABASE_USER;" >&/dev/null || { echo "Granting privileges failed"; exit 1; }
+
         db_modified=true
         echo "Privileges granted."
     else
@@ -134,15 +454,15 @@ setup_database() {
     echo ""
     
     # Check if the database owner is already set to the specified user
-    echo "Checking if database owner is already '$DB_USER'..."
-    CURRENT_OWNER=$(sudo -u postgres psql -tAc "SELECT d.datname, pg_catalog.pg_get_userbyid(d.datdba) as owner FROM pg_catalog.pg_database d WHERE d.datname = '$DB_NAME'")
-    if [[ $CURRENT_OWNER != *"$DB_USER"* ]]; then
-        echo "Setting database owner to '$DB_USER'..."
-        sudo -u postgres psql -c "ALTER DATABASE $DB_NAME OWNER TO $DB_USER;" >&/dev/null || { echo "Setting database owner failed"; exit 1; }
+    echo "Checking if database owner is already '$DENARO_DATABASE_USER'..."
+    CURRENT_OWNER=$(sudo -u postgres psql -tAc "SELECT d.datname, pg_catalog.pg_get_userbyid(d.datdba) as owner FROM pg_catalog.pg_database d WHERE d.datname = '$DENARO_DATABASE_NAME'")
+    if [[ $CURRENT_OWNER != *"$DENARO_DATABASE_USER"* ]]; then
+        echo "Setting database owner to '$DENARO_DATABASE_USER'..."
+        sudo -u postgres psql -c "ALTER DATABASE $DENARO_DATABASE_NAME OWNER TO $DENARO_DATABASE_USER;" >&/dev/null || { echo "Setting database owner failed"; exit 1; }
         db_modified=true
         echo "Database owner set."
     else
-        echo "Database owner is already '$DB_USER'."
+        echo "Database owner is already '$DENARO_DATABASE_USER'."
     fi
     echo ""
     
@@ -154,12 +474,12 @@ setup_database() {
     
     echo "Checking if pg_hba.conf needs modification..."
     # Check if modification is needed in pg_hba.conf
-    if ! sudo grep -q 'local   all             all                                     trust' $PG_HBA_CONF; then
+    if ! sudo grep -q 'local   all             all                                     md5' $PG_HBA_CONF; then
         echo "Modifying $PG_HBA_CONF for trust authentication..."
-        sudo sed -i.bak '/# "local" is for Unix domain socket connections only/{n;s/peer/trust/;}' $PG_HBA_CONF || { echo "Modification of $PG_HBA_CONF failed"; exit 1; }
+        sudo sed -i.bak '/# "local" is for Unix domain socket connections only/{n;s/peer/md5/;}' $PG_HBA_CONF || { echo "Modification of $PG_HBA_CONF failed"; exit 1; }
         db_modified=true
     else
-        echo "pg_hba.conf already set for trust authentication, skipping..."
+        echo "pg_hba.conf already set for md5 authentication, skipping..."
     fi
     echo ""
 
@@ -170,8 +490,8 @@ setup_database() {
         echo ""
     
         echo "Importing database schema from schema.sql..."
-        # Import schema (consider making this idempotent as well, depending on your schema)
-        psql -U $DB_USER -d $DB_NAME -c "SET client_min_messages TO WARNING;" -f schema.sql >&/dev/null || { echo "Schema import failed"; exit 1; }
+        # Import schema
+        PGPASSWORD=$DENARO_DATABASE_PASSWORD psql -U $DENARO_DATABASE_USER -d $DENARO_DATABASE_NAME -c "SET client_min_messages TO WARNING;" -f schema.sql >&/dev/null || { echo "Schema import failed"; exit 1; }
         echo ""
         echo "Database setup complete!"
         echo ""
@@ -189,6 +509,7 @@ if $SETUP_DB_ONLY; then
     else
         update_and_install_packages
     fi
+    set_env_variables
     setup_database
     exit 0
 fi
@@ -200,6 +521,7 @@ else
     update_and_install_packages
 fi
 
+set_env_variables
 setup_database
 
 VENV_DIR="venv"
@@ -294,15 +616,20 @@ for req in requirements:
     except (DistributionNotFound, VersionConflict):
         missing.append(req)
 
+sep = '~'
+packages = []
 for m in missing:
-    print(m)
+    package_name = m.split(sep, 1)[0]
+    packages.append(package_name)
+packages = ', '.join(packages)
+print(str(packages))
 ")
 
-    if [ ${#missing_packages[@]} -eq 0 ]; then
+    if [ ${#missing_packages} -eq 0 ]; then
         echo "Required packages are already installed."
         return
     else
-        echo -e "The following packages from requirements.txt are missing:\n${missing_packages[*]}"
+        echo -e "\nThe following packages from requirements.txt are missing:\n${missing_packages}."
     fi
 
     # Skip the first prompt if SKIP_PROMPTS is true
@@ -366,26 +693,7 @@ validate_start_node_response() {
             break  # Exit the loop if the input is valid
         else
             echo "Invalid input. Please enter 'Y' or 'N'."  # Prompt for valid input
-        fi
-    done
-}
-
-port=3006
-
-# Function to validate the port number input
-validate_port_input() {
-    echo ""
-    while true; do
-        # Prompt the user for the port number with a default value
-        read -p "Enter the port number you want to use (default 3006): " port
-        # Use default port 3006 if no input is provided
-        if [[ -z "$port" ]]; then
-            port=3006
-            break  # Exit the loop if default is used
-        elif [[ "$port" =~ ^[0-9]+$ ]] && [ "$port" -ge 1024 ] && [ "$port" -le 49151 ]; then
-            break  # Exit the loop if the port is a valid number within range
-        else
-            echo "Invalid port number. Please enter a number between 1024 and 49151."  # Prompt for valid input
+            echo ""
         fi
     done
 }
@@ -393,19 +701,17 @@ validate_port_input() {
 # Validate start_node input
 start_node(){
     echo ""
-    echo "Starting Denaro node for localhost on port $port..."
+    echo "Starting Denaro node on port $DENARO_NODE_PORT..."
     echo "Press Ctrl+C to exit."
     echo ""
-    uvicorn denaro.node.main:app --port $port || { echo "Failed to start Denaro Node"; exit 1; }
+    uvicorn denaro.node.main:app --port $DENARO_NODE_PORT || { echo "Failed to start Denaro Node"; exit 1; }
 }
 
 if $SKIP_PROMPTS; then
     start_node
 else
     validate_start_node_response
-    if [[ "$start_node" =~ ^[Yy]$ ]]; then    
-        # Validate port number input
-        validate_port_input
+    if [[ "$start_node" =~ ^[Yy]$ ]]; then
         start_node
     else
         echo "Skipped..."

@@ -1,17 +1,19 @@
 import asyncio
-from os import environ
+import os
+from dotenv import dotenv_values
 
 from asyncpg import UndefinedTableError
 
 from denaro import Database
 
+config = dotenv_values(".env")
 
 async def run():
     db: Database = await Database.create(
-        user=environ.get('DENARO_DATABASE_USER', 'denaro'),
-        password=environ.get('DENARO_DATABASE_PASSWORD', ''),
-        database=environ.get('DENARO_DATABASE_NAME', 'denaro'),
-        host=environ.get('DENARO_DATABASE_HOST', None),
+        user=config['DENARO_DATABASE_USER'] if config['DENARO_DATABASE_USER'] else "denaro" ,
+        password=config['DENARO_DATABASE_PASSWORD'] if config['DENARO_DATABASE_PASSWORD'] else "",
+        database=config['DENARO_DATABASE_NAME'] if config['DENARO_DATABASE_NAME'] else "denaro",
+        host=config['DENARO_DATABASE_HOST'] if config['DENARO_DATABASE_HOST'] else None,
         ignore=True
     )
     async with db.pool.acquire() as connection:

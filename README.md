@@ -1,7 +1,5 @@
 # Denaro
 
-## Overview
-
 **Denaro**, 'money' in Italian, is a cryptocurrency developed entirely in Python and utilizes PostgreSQL for it's blockchain.
 
 * **Features**: 
@@ -12,7 +10,7 @@
 
 ## Installation
 
-**Automated configuration and deployment of a Denaro node are facilitated by the `setup.sh` script. It handles system package updates, configures the PostgreSQL database, sets up a Python virtual environment, installs the required Python dependencies, and initiates the Denaro node. This script ensures that all prerequisites for operating a Denaro node are met and properly configured accoring to the user's preference.**
+**Automated configuration and deployment of a Denaro node are facilitated by the `setup.sh` script. It handles system package updates, manages environment variables, configures the PostgreSQL database, sets up a Python virtual environment, installs the required Python dependencies, and initiates the Denaro node. This script ensures that all prerequisites for operating a Denaro node are met and properly configured accoring to the user's preference.**
  
 - The setup script accepts three optional arguments to adjust its behavior during installation:
 
@@ -116,7 +114,7 @@ curl http://localhost:3006/sync_blockchain
 
 ## Mining
 
-**Denaro** adopts a Proof of Work (PoW) system for its mining process:
+**Denaro** adopts a Proof of Work (PoW) system for mining:
 
 - **Block Hashing**:
   - Utilizes the sha256 algorithm for block hashing.

@@ -8,3 +8,4 @@ bot.session
 test.db
 postgres/
 nodes.json
+.env

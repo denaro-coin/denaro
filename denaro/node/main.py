@@ -1,7 +1,8 @@
 import random
 from asyncio import gather
 from collections import deque
-from os import environ
+import os
+from dotenv import dotenv_values
 import re
 import json
 from decimal import Decimal
@@ -51,6 +52,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+config = dotenv_values(".env")
 
 async def propagate(path: str, args: dict, ignore_url=None, nodes: list = None):
     global self_url
@@ -180,11 +182,12 @@ async def sync_blockchain(node_url: str = None):
 @app.on_event("startup")
 async def startup():
     global db
+    global config
     db = await Database.create(
-        user=environ.get('DENARO_DATABASE_USER', 'denaro'),
-        password=environ.get('DENARO_DATABASE_PASSWORD', ''),
-        database=environ.get('DENARO_DATABASE_NAME', 'denaro'),
-        host=environ.get('DENARO_DATABASE_HOST', None)
+        user=config['DENARO_DATABASE_USER'] if 'DENARO_DATABASE_USER' in config else "denaro" ,
+        password=config['DENARO_DATABASE_PASSWORD'] if 'DENARO_DATABASE_PASSWORD' in config else 'denaro',
+        database=config['DENARO_DATABASE_NAME'] if 'DENARO_DATABASE_NAME' in config else "denaro",
+        host=config['DENARO_DATABASE_HOST'] if 'DENARO_DATABASE_HOST' in config else None
     )
 
 

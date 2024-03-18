@@ -1,7 +1,10 @@
 #!/bin/bash
 
-# Overview:
 # Author: The-Sycorax (https://github.com/The-Sycorax)
+# License: MIT
+# Copyright (c) 2024
+#
+# Overview:
 # This bash script automates the PostgreSQL setup required to run a Denaro node. It also installs other pre-requisites which are used by python modules.
 # This script has been specifically designed for Debian/Ubuntu Linux distributions.
 
