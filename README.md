@@ -50,11 +50,16 @@
 
 *Note: It is nessessary to ensure that the package names specified are adjusted to correspond with those recognized by your package manager.*
 
-- `sudo`
-- `postgresql`
+- `gcc`
 - `libgmp-dev`
 - `libpq-dev`
+- `postgresql`
+- `python3`
 - `python3-venv` (If using a python virtual environment)
+- `sudo`
+
+
+
 
 </dd></dl>
 </details>

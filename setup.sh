@@ -59,14 +59,14 @@ update_and_install_packages() {
 
     # List of all packages to check
     if $SETUP_DB_ONLY; then
-        local packages=("postgresql" "libgmp-dev" "libpq-dev")
+        local packages=("gcc" "postgresql" "libgmp-dev" "libpq-dev")
     else
-        local packages=("postgresql" "libgmp-dev" "libpq-dev" "python3-venv")
+        local packages=("gcc" "postgresql" "libgmp-dev" "libpq-dev" "python3" "python3-dev" "python3-venv")
     fi
 
     # Check each package and add to the list if it is not installed
     for package in "${packages[@]}"; do
-        if ! dpkg -l | grep -qw $package; then
+        if ! dpkg-query -W -f='${Status}' $package 2>/dev/null | grep -q "install ok installed"; then
             echo "Package $package is not installed."
             packages_to_install+=($package)
         else
@@ -207,8 +207,8 @@ update_variable() {
     local show_current_vars="$4"
     local env_file=".env"  # Path to the .env file
     
-    local default_value="${!var_name}"
     # Define default values explicitly for each variable
+    local default_value="${!var_name}"
     
     # Extract the current value directly from the .env file
     local current_value=$(grep "^$var_name=" "$env_file" | cut -d'=' -f2-)
@@ -253,7 +253,8 @@ update_variable() {
                 if $show_current_vars;then
                     value="$var_value"
                 else
-                    value="$default_value"  # Use default value if no input is provided
+                    # Use default value if no input is provided
+                    value="$default_value"  
                 fi
             fi
             eval $var_name="'$value'"
@@ -445,7 +446,7 @@ setup_database() {
         echo "Granting all database privileges to user..."
         sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE $DENARO_DATABASE_NAME TO $DENARO_DATABASE_USER;" >&/dev/null || { echo "Granting privileges failed"; exit 1; }
         sudo -u postgres psql -d $DENARO_DATABASE_NAME -c "GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO $DENARO_DATABASE_USER;" >&/dev/null || { echo "Granting privileges failed"; exit 1; }
-
+        sudo -u postgres psql -d $DENARO_DATABASE_NAME -c "GRANT ALL ON SCHEMA public TO $DENARO_DATABASE_USER;" >&/dev/null || { echo "Granting privileges failed"; exit 1; }
         db_modified=true
         echo "Privileges granted."
     else
@@ -514,7 +515,7 @@ if $SETUP_DB_ONLY; then
     exit 0
 fi
 
-# Only install apt packages if --skip-package-install is specified
+# Skip apt package installation if --skip-package-install is specified
 if $SKIP_APT_INSTALL; then
     echo "Skipping APT package installation..."
 else
@@ -598,7 +599,7 @@ activate_venv() {
     fi
 }
 
-# Function to check if pip requirements are installed and ask for installation
+# Function to check if pip requirements are installed and to ask for installation
 pip_install() {
     echo ""
     echo "Checking required Python packages..."
@@ -662,7 +663,7 @@ print(str(packages))
     echo "Installing required Python packages..."
     echo ""
     # Proceed with installation
-    pip install -r requirements.txt
+    pip install -r requirements.txt || { echo "Failed to install python packages."; exit 1; }
     echo ""
     if [[ -z "$VIRTUAL_ENV" ]]; then
         echo "Python packages installed globally."

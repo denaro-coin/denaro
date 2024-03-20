@@ -224,6 +224,9 @@ class Database:
                     tx_executed = await connection.fetchval("SELECT timestamp FROM blocks WHERE hash = $1;", block_hash)
                 elif isinstance(transaction, Transaction):
                     tx_executed = await connection.fetchval("SELECT time_received FROM pending_transactions WHERE tx_hash = $1;", transaction.hash())
+                    #if tx_executed is None:
+                         # Get timestamp from transaction object
+                    #    tx_executed = datetime.fromtimestamp(transaction.timestamp, timezone.utc).replace(tzinfo=None)
                 else:
                     tx_executed = None
                 data.append((
@@ -347,10 +350,20 @@ class Database:
     async def get_blocks(self, offset: int, limit: int) -> list:
         async with self.pool.acquire() as connection:
             transactions: list = await connection.fetch(f'SELECT tx_hex, block_hash FROM transactions WHERE block_hash = ANY(SELECT hash FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2)', offset, limit)
+            #transactions: list = await connection.fetch(f'SELECT tx_hex, block_hash, time_received FROM transactions WHERE block_hash = ANY(SELECT hash FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2)', offset, limit)
             blocks = await connection.fetch(f'SELECT * FROM blocks WHERE id >= $1 ORDER BY id LIMIT $2', offset, limit)
 
         index = {block['hash']: [] for block in blocks}
         for transaction in transactions:
+            #time_received = 0
+            #if transaction["time_received"] is not None:
+                 #Convert time_recieved to a unix timestamp          
+            #    time_received = int(round(transaction['time_received'].replace(tzinfo=timezone.utc).timestamp()))
+            # Convert the unix timestamp to it's smallest possible representation in bytes (4 bytes)
+            #time_received_bytes = await Transaction.timestamp_to_bytes(time_received)
+            
+            # Append bytes in hex format to the end of the transaction data
+            #index[transaction['block_hash']].append(transaction['tx_hex']+time_received_bytes.hex())
             index[transaction['block_hash']].append(transaction['tx_hex'])
 
         result = []

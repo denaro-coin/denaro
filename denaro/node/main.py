@@ -77,6 +77,7 @@ async def create_blocks(blocks: list):
         block = block_info['block']
         txs_hex = block_info['transactions']
         txs = [await Transaction.from_hex(tx) for tx in txs_hex]
+        #txs = [await Transaction.from_hex(tx, set_timestamp=True) for tx in txs_hex]
         for tx in txs:
             if isinstance(tx, CoinbaseTransaction):
                 txs.remove(tx)
