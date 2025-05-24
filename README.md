@@ -1,5 +1,4 @@
 # Denaro
-
 **Denaro**, 'money' in Italian, is a cryptocurrency developed entirely in Python and utilizes PostgreSQL for it's blockchain.
 
 * **Features**: 
@@ -8,8 +7,19 @@
   * Blocks are generated approximately every ~3 minutes, with a limit of 2MB per block.
   * Given an average transaction size of 250 bytes (comprising of 5 inputs and 2 outputs), a single block can accommodate approximately ~8300 transactions, which translates to about ~40 transactions per second.
 
+## Denaro Projects
+* [Denaro Wallet Client GUI](https://github.com/The-Sycorax/DenaroWalletClient-GUI)
+* [Denaro Wallet Client CLI](https://github.com/The-Sycorax/DenaroWalletClient)
+* [Denaro CUDA Pool miner](https://github.com/1460293896/denaro-cuda-miner)
+* [DenaroCudaMiner (Solo)](https://github.com/witer33/denarocudaminer)
+* [Denaro WASM Miner](https://github.com/geiccobs/denaro-wasm-miner)
+* [Denaro CPU Pool Miner](https://github.com/geiccobs/denaro-pool-miner)
+* [Denaro CPU Solo Miner](https://github.com/geiccobs/denaro-solo-miner)
+* [DVM (Denaro Virtual Machine)](https://github.com/denaro-coin/dvm)
+* [Denaro Vanity Generator](https://github.com/The-Sycorax/Denaro-Vanity-Generator)
+* [Denaro-Vanity-Gen](https://github.com/Avecci-Claussen/Denaro-Vanity-Gen)
+  
 ## Installation
-
 **Automated configuration and deployment of a Denaro node are facilitated by the `setup.sh` script. It handles system package updates, manages environment variables, configures the PostgreSQL database, sets up a Python virtual environment, installs the required Python dependencies, and initiates the Denaro node. This script ensures that all prerequisites for operating a Denaro node are met and properly configured accoring to the user's preference.**
  
 - The setup script accepts three optional arguments to adjust its behavior during installation:
@@ -57,10 +67,7 @@
 - `python3`
 - `python3-venv` (If using a python virtual environment)
 - `sudo`
-
-
-
-
+  
 </dd></dl>
 </details>
 
@@ -141,3 +148,6 @@ curl http://localhost:3006/sync_blockchain
   - Block rewards decrease by half over time until they reach zero.
   - Rewards start at `100` for the initial `150,000` blocks, decreasing in predetermined steps until a final reward of `0.3125` for the `458,733`rd block.
   - After this, blocks do not offer a mining reward, but transaction fees are still applicable. A transaction may also have no fees at all.
+
+## License
+Denaro is released under the terms of the GNU Affero General Public License v3.0. See [LICENSE](LICENSE) for more information or goto https://www.gnu.org/licenses/agpl-3.0.en.html
