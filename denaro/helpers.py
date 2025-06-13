@@ -16,7 +16,7 @@ from .constants import ENDIAN, CURVE
 
 _print = print
 
-logging.basicConfig(level=logging.INFO if '--nologs' not in sys.argv else logging.WARNING)
+#logging.basicConfig(level=logging.INFO if '--nologs' not in sys.argv else logging.WARNING)
 
 
 def log(s):

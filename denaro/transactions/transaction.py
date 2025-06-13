@@ -10,11 +10,13 @@ from .coinbase_transaction import CoinbaseTransaction
 from ..constants import ENDIAN, SMALLEST, CURVE
 from ..helpers import point_to_string, bytes_to_string, sha256
 
-print = ic
+import struct
+
+#print = ic
 
 
 class Transaction:
-    def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput], message: bytes = None, version: int = None):
+    def __init__(self, inputs: List[TransactionInput], outputs: List[TransactionOutput], message: bytes = None, version: int = None):#, timestamp: int = None):
         if len(inputs) >= 256:
             raise Exception(f'You can spend max 255 inputs in a single transactions, not {len(inputs)}')
         if len(outputs) >= 256:
@@ -32,6 +34,9 @@ class Transaction:
         if version > 3:
             raise NotImplementedError()
         self.version = version
+        
+        #self.timestamp = timestamp
+
         self._hex: str = None
         self.fees: Decimal = None
         self.tx_hash: str = None
@@ -183,9 +188,65 @@ class Transaction:
         self.fees = input_amount - output_amount
         assert (self.fees * SMALLEST) % 1 == 0.0
         return self.fees
+    
+    # Timestamp handling might need to be changed in the future to address potential bugs and overflow issues.
+    # Currently, the implementation "should" support Unix timestamps up to the maximum value of 4294967295.
+    # This corresponds to the rollover date of 7 February 2106, 06:28:15 UTC, which is the upper limit
+    # for dates representable by a 32-bit unsigned integer. 
+    # Beyond this point, timestamp values will overflow...
+    # Reference: https://en.wikipedia.org/wiki/Time_formatting_and_storage_bugs
 
     @staticmethod
-    async def from_hex(hexstring: str, check_signatures: bool = True):
+    async def timestamp_to_bytes(timestamp):
+        """
+        Converts a Unix timestamp to a 4-byte representation.
+    
+        Args:
+        - timestamp (int): The Unix timestamp to convert.
+    
+        Returns:
+        - bytes: The 4-byte representation of the timestamp.
+        """
+        # Ensure the timestamp is within the 32-bit unsigned integer range.
+        if timestamp < 0 or timestamp > 4294967295:
+                                        
+            raise ValueError("Timestamp must be between 0 and 4294967295.")
+    
+        return struct.pack('>I', timestamp)
+    
+    @staticmethod
+    async def bytes_to_timestamp(byte_data):
+        """
+        Converts a 4-byte representation back into a Unix timestamp.
+    
+        Args:
+        - byte_data (bytes): The 4 bytes to convert back to a timestamp.
+    
+        Returns:
+        - int: The Unix timestamp.
+        """
+        if len(byte_data) != 4:
+            raise ValueError("Input must be exactly 4 bytes.")
+
+        return struct.unpack('>I', byte_data)[0]
+    
+    @staticmethod
+    async def from_hex(hexstring: str, check_signatures: bool = True):#, set_timestamp:bool = False):
+
+        #timestamp = None
+        # Check if the timestamp should be extracted and converted from the hexstring.
+        #if set_timestamp:
+             # Extracts the last 8 characters as timestamp in hexadecimal, converts to bytes, then to actual timestamp.
+        #    timestamp_hex = hexstring[-8:]
+        #    timestamp_bytes = bytes.fromhex(timestamp_hex)
+        #    timestamp = await Transaction.bytes_to_timestamp(timestamp_bytes)
+
+            # Convert the rest of the hexstring (excluding the last 8 characters) to bytes
+        #    tx_bytes = BytesIO(bytes.fromhex(hexstring[:-8]))
+        #else:
+            # If set_timestamp is False, convert the entire hexstring to bytes
+        #    tx_bytes = BytesIO(bytes.fromhex(hexstring))
+
         tx_bytes = BytesIO(bytes.fromhex(hexstring))
         version = int.from_bytes(tx_bytes.read(1), ENDIAN)
         if version > 3:
@@ -238,7 +299,7 @@ class Transaction:
                     tx_input.signed = signatures[i]
             else:
                 if not check_signatures:
-                    return Transaction(inputs, outputs, message, version)
+                    return Transaction(inputs, outputs, message, version)#, timestamp)
                 index = {}
                 for tx_input in inputs:
                     public_key = point_to_string(await tx_input.get_public_key())
@@ -250,7 +311,7 @@ class Transaction:
                     for tx_input in index[list(index.keys())[i]]:
                         tx_input.signed = signed
 
-            return Transaction(inputs, outputs, message, version)
+            return Transaction(inputs, outputs, message, version)#, timestamp)
 
     def __eq__(self, other):
         if isinstance(other, self.__class__):
