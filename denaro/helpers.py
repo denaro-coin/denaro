@@ -33,7 +33,7 @@ def get_json(obj):
 
 
 def timestamp():
-    return int(datetime.now(timezone.utc).replace(tzinfo=timezone.utc).timestamp())
+    return int(datetime.now(timezone.utc).timestamp())
 
 
 def sha256(message: Union[str, bytes]):
