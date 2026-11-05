@@ -20,7 +20,7 @@ NODE_URL = 'https://denaro-node.gaetano.eu.org'
 
 
 def get_address_info(address: str):
-    request = requests.get(f'{NODE_URL}/get_address_info', {'address': address, 'transactions_count_limit': 0, 'show_pending': True })
+    request = requests.get(f'{NODE_URL}/get_address_info', {'address': address, 'transactions_count_limit': 0, 'show_pending': True }, timeout=10)
     result = request.json()['result']
     tx_inputs = []
     pending_spent_outputs = [tuple(output) for output in result['pending_spent_outputs']]
